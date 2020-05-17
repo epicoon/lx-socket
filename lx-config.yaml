@@ -1,0 +1,14 @@
+name: lx/socket
+
+autoload:
+  psr-4:
+    lx\socket\:
+      - ''
+      - src
+
+service:
+  class: lx\socket\Service
+
+  processes:
+    server:
+      class: lx\socket\SocketServer
