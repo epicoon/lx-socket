@@ -1,0 +1,13 @@
+{
+  "name": "lx/socket",
+  "description": "Lx framework service",
+  "version": "1.0.0",
+  "keywords": ["lx", "socket"],
+  "type": "library",
+  "authors": [
+    {
+      "name": "a.sedov",
+      "email": "altkkb.vds@mail.ru"
+    }
+  ]
+}
