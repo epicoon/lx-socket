@@ -3,43 +3,87 @@
 namespace lx\socket\Channel;
 
 use InvalidArgumentException;
+use lx\socket\Connection;
 use RuntimeException;
 
 abstract class Channel implements ChannelInterface
 {
+    /** @var array&Connection[] */
+    protected $connections = [];
+
+    /** @var array */
+    protected $metaData = [];
+
     /**
-     * @var array $instances
+     * Channel constructor.
+     * @param array $metaData
      */
-    protected static $instances = [];
-
-    protected function __construct()
+    public function __construct($metaData = [])
     {
-        // singleton construct required this method to be protected/private
-    }
-
-    final private function __clone()
-    {
-        // singleton construct required this method to be protected/private
+        $this->metaData = $metaData;
     }
 
     /**
-     * Creates and returns new Channel object.
-     *
-     * @return ChannelInterface
+     * @return array
      */
-    final public static function getInstance(): ChannelInterface
+    public function getMetaData()
     {
-        $calledClassName = get_called_class();
-        if (!isset(self::$instances[$calledClassName])) {
-            self::$instances[$calledClassName] = new $calledClassName();
-        }
-
-        return self::$instances[$calledClassName];
+        return $this->metaData;
     }
 
     /**
-     * Decodes json data received from stream.
-     *
+     * @return array
+     */
+    public function getConnections()
+    {
+        return $this->connections;
+    }
+
+    /**
+     * @return array
+     */
+    public function getConnectionIds()
+    {
+        return array_keys($this->connections);
+    }
+
+    /**
+     * @return int
+     */
+    public function getConnectionsCount()
+    {
+        return count($this->connections);
+    }
+
+    /**
+     * @param Connection $connection
+     */
+    public function onConnect(Connection $connection): void
+    {
+        $id = $connection->getId();
+        $this->connections[$id] = $connection;
+    }
+
+    /**
+     * @param Connection $connection
+     */
+    public function onDisconnect(Connection $connection): void
+    {
+        $id = $connection->getId();
+        unset($this->connections[$id]);
+    }
+
+
+
+
+
+
+
+
+
+
+    //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    /**
      * @param string $data
      * @throws RuntimeException
      * @return array
@@ -51,16 +95,14 @@ abstract class Channel implements ChannelInterface
             throw new RuntimeException('Could not decode data.');
         }
 
-        if (isset($decodedData['action'], $decodedData['data']) === false) {
-            throw new RuntimeException('Decoded data is invalid.');
-        }
+//        if (isset($decodedData['action'], $decodedData['data']) === false) {
+//            throw new RuntimeException('Decoded data is invalid.');
+//        }
 
         return $decodedData;
     }
 
     /**
-     * Encodes data to be send to client.
-     *
      * @param string $action
      * @param mixed $data
      * @throws InvalidArgumentException
@@ -77,4 +119,13 @@ abstract class Channel implements ChannelInterface
             'data' => $data
         ]);
     }
+
+
+
+
+
+
+
+
+
 }

@@ -10,9 +10,6 @@ use lx\socket\serverTools\OriginValidator;
 use Exception;
 use RuntimeException;
 
-//TODO
-use lx\socket\Channel\DemoChannel;
-
 /**
  * Class SocketServer
  * @package lx\socket
@@ -94,6 +91,42 @@ class SocketServer extends ProcessApplication
     }
 
     /**
+     * @return Socket
+     */
+    public function getMasterSocket(): Socket
+    {
+        return $this->masterSocket;
+    }
+
+    /**
+     * @return array
+     */
+    public function getClientConnections()
+    {
+        $resources = $this->getClientSocketResources();
+        $result = [];
+        foreach ($resources as $resource) {
+            $result[] = $this->connections->get($resource);
+        }
+
+        return $result;        
+    }
+
+    /**
+     * @return array
+     */
+    public function getClientSocketResources(): array
+    {
+        $result = [];
+        foreach ($this->allSocketResources as $resource) {
+            if ($resource == $this->masterSocket->getResource()) continue;
+            $result[] = $resource;
+        }
+
+        return $result;
+    }
+
+    /**
      * @param Socket $socket
      */
     public function removeSocket(Socket $socket) : void
@@ -111,27 +144,6 @@ class SocketServer extends ProcessApplication
     public function log($message, $type = null)
     {
 //        echo date('Y-m-d H:i:s') . ' [' . ($type ? $type : 'error') . '] ' . $message . PHP_EOL;
-    }
-
-    protected function processMessage($message)
-    {
-        if (is_string($message)) {
-            foreach ($this->allSocketResources as $resource) {
-                if ($resource == $this->masterSocket->getResource()) continue;
-
-                $c = $this->connections->get($resource);
-                $c->send('FROM processMessage:' . $message);
-            }
-
-
-            return;
-        }
-
-        switch($message['key']) {
-            case 'addConnections' :
-                $this->channels->set('demo', DemoChannel::getInstance());
-                break;
-        }
     }
 
     final protected function process()

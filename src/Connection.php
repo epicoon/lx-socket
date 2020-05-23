@@ -19,6 +19,9 @@ class Connection
     /** @var string $ip */
     private $ip;
 
+    /** @var array|bool */
+    private $metaData;
+
     /** @var int $port */
     private $port;
 
@@ -42,6 +45,8 @@ class Connection
     {
         $this->server = $server;
         $this->socket = $socket;
+
+        $this->metaData = false;
 
         // set some client-information:
         $socketName = $socket->getName();
@@ -143,7 +148,6 @@ class Connection
 
         $this->isHandshakeDone = true;
         $this->log('Handshake sent');
-        $this->channel->onConnect($this);
 
         return true;
     }
@@ -188,6 +192,7 @@ class Connection
             $this->server->connections->remove($this, false);
             return;
         }
+
         $bytes = strlen($data);
         if ($bytes === 0) {
             $this->onDisconnect();
@@ -211,7 +216,10 @@ class Connection
         } else {
             $this->handshake($data);
 
-            $this->send($this->id);
+            $this->send([
+                'id' => $this->id,
+                'ids' => $this->channel->getConnectionIds(),
+            ]);
         }
     }
 
@@ -247,7 +255,7 @@ class Connection
 
         switch ($decodedData['type']) {
             case 'text':
-                $this->channel->onData($decodedData['payload'], $this);
+                $this->processMessage($decodedData['payload']);
                 break;
             case 'binary':
                 $this->close(1003);
@@ -269,14 +277,15 @@ class Connection
     }
 
     /**
-     * @param string $payload
+     * @param string|array $payload
      * @param string $type
      * @param bool $masked
      * @return bool
      */
-    public function send(string $payload, string $type = 'text', bool $masked = false) : bool
+    public function send($payload, string $type = 'text', bool $masked = false) : bool
     {
         try {
+            $payload = json_encode($payload);
             $encodedData = $this->hybi10Encode($payload, $type, $masked);
             $this->socket->writeBuffer($encodedData);
         } catch (RuntimeException $e) {
@@ -328,8 +337,8 @@ class Connection
         if ($this->channel) {
             $this->channel->onDisconnect($this);
         }
-        $this->socket->shutdown();
         $this->server->connections->remove($this);
+        $this->socket->shutdown();
     }
 
 
@@ -340,12 +349,40 @@ class Connection
     }
 
     /**
+     * @return array
+     */
+    public function getMetaData(): array
+    {
+        if (is_bool($this->metaData)) {
+            return [];
+        }
+
+        return $this->metaData;
+    }
+
+    /**
      * @param string $message
      * @param string $type
      */
     public function log(string $message, string $type = 'info') : void
     {
         $this->server->log('[client ' . $this->ip . ':' . $this->port . '] ' . $message, $type);
+    }
+
+    /**
+     * @param string $message
+     */
+    private function processMessage($message)
+    {
+        $message = json_decode($message, true);
+
+        if (($message['action'] ?? '') == 'metaData' && $this->metaData === false) {
+            $this->metaData = $message['metaData'] ?? true;
+            $this->channel->onConnect($this);
+            return;
+        }
+
+        $this->channel->onMessage($message, $this);
     }
 
     /**

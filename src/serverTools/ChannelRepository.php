@@ -3,6 +3,7 @@
 namespace lx\socket\serverTools;
 
 use lx\socket\Channel\ChannelInterface;
+use lx\StringHelper;
 use RuntimeException;
 
 /**
@@ -15,10 +16,18 @@ class ChannelRepository
     private $channels = [];
 
     /**
+     * @return array
+     */
+    public function getChannelNames(): array
+    {
+        return array_keys($this->channels);
+    }
+
+    /**
      * @param string $key
      * @return bool
      */
-    public function has(string $key) : bool
+    public function has(string $key): bool
     {
         if (empty($key)) {
             return false;
@@ -31,7 +40,7 @@ class ChannelRepository
      * @param string $key
      * @return ChannelInterface
      */
-    public function get(string $key) : ChannelInterface
+    public function get(string $key): ChannelInterface
     {
         if ($this->has($key) === false) {
             throw new RuntimeException('Unknown channel requested.');
@@ -40,14 +49,26 @@ class ChannelRepository
         return $this->channels[$key];
     }
 
-
     /**
-     * @param string $key
-     * @param ChannelInterface $channel
-     * @return void
+     * @param string $channelName
+     * @param string $channelClassName
+     * @param array $metaData
+     * @return bool
      */
-    public function set(string $key, ChannelInterface $channel) : void
+    public function create(string $channelName, string $channelClassName, array $metaData = [])
     {
-        $this->channels[$key] = $channel;
+        if ($this->has($channelName)) {
+            //TODO log
+            return false;
+        }
+
+        if (!is_subclass_of($channelClassName, ChannelInterface::class)) {
+            //TODO log
+            return false;
+        }
+
+        $this->channels[$channelName] = new $channelClassName($metaData);
+
+        return true;
     }
 }
