@@ -27,6 +27,22 @@ interface ChannelInterface
     public function onMessage(string $data, Connection $client): void;
 
     /**
+     * @param string $password
+     */
+    public function setPassword($password);
+
+    /**
+     * @return bool
+     */
+    public function requirePassword();
+
+    /**
+     * @param string $password
+     * @return bool
+     */
+    public function checkPassword($password);
+
+    /**
      * @return array
      */
     public function getMetaData();
@@ -40,6 +56,11 @@ interface ChannelInterface
      * @return array
      */
     public function getConnectionIds();
+
+    /**
+     * @return array
+     */
+    public function getConnectionsData();
 
     /**
      * @return int

@@ -14,6 +14,9 @@ abstract class Channel implements ChannelInterface
     /** @var array */
     protected $metaData = [];
 
+    /** @var null|string */
+    protected $password = null;
+
     /**
      * Channel constructor.
      * @param array $metaData
@@ -24,11 +27,38 @@ abstract class Channel implements ChannelInterface
     }
 
     /**
+     * @param string $password
+     */
+    public function setPassword($password)
+    {
+        $this->password = $password;
+    }
+
+    /**
+     * @return bool
+     */
+    public function requirePassword()
+    {
+        return ($this->password !== null);
+    }
+
+    /**
+     * @param string $password
+     * @return bool
+     */
+    public function checkPassword($password)
+    {
+        return $this->password == $password;
+    }
+
+    /**
      * @return array
      */
     public function getMetaData()
     {
-        return $this->metaData;
+        $metaData = $this->metaData;
+        $metaData['requirePassword'] = $this->requirePassword();
+        return $metaData;
     }
 
     /**
@@ -48,6 +78,18 @@ abstract class Channel implements ChannelInterface
     }
 
     /**
+     * @return array
+     */
+    public function getConnectionsData()
+    {
+        $result = [];
+        foreach ($this->connections as $connection) {
+            $result[$connection->getId()] = $connection->getChannelOpenData();
+        }
+        return $result;
+    }
+
+    /**
      * @return int
      */
     public function getConnectionsCount()
@@ -62,6 +104,14 @@ abstract class Channel implements ChannelInterface
     {
         $id = $connection->getId();
         $this->connections[$id] = $connection;
+
+        $clientData = $connection->getChannelOpenData();
+        foreach ($this->connections as $otherConnection) {
+            $otherConnection->send([
+                '__event__' => 'clientJoin',
+                'client' => $clientData,
+            ]);
+        }
     }
 
     /**
@@ -71,6 +121,14 @@ abstract class Channel implements ChannelInterface
     {
         $id = $connection->getId();
         unset($this->connections[$id]);
+
+        $clientData = $connection->getChannelOpenData();
+        foreach ($this->connections as $otherConnection) {
+            $otherConnection->send([
+                '__event__' => 'clientLeave',
+                'client' => $clientData,
+            ]);
+        }
     }
 
 
