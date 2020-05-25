@@ -21,10 +21,10 @@ interface ChannelInterface
     public function onDisconnect(Connection $connection): void;
 
     /**
-     * @param string $data
+     * @param mixed $data
      * @param Connection $client
      */
-    public function onMessage(string $data, Connection $client): void;
+    public function onMessage($data, Connection $client): void;
 
     /**
      * @param string $password

@@ -1,0 +1,6 @@
+{
+    "lx.socket.WebSocketClient": {
+        "name": "lx.socket.WebSocketClient",
+        "path": "vendor\/lx\/socket\/modules\/WebSocketClient.js"
+    }
+}
