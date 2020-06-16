@@ -11,6 +11,11 @@ use lx\socket\Connection;
 interface ChannelInterface
 {
     /**
+     * @return string
+     */
+    public function getName();
+
+    /**
      * @param Connection $connection
      */
     public function onConnect(Connection $connection): void;
@@ -21,10 +26,57 @@ interface ChannelInterface
     public function onDisconnect(Connection $connection): void;
 
     /**
-     * @param mixed $data
-     * @param Connection $client
+     * @param ChannelMessage $message
      */
-    public function onMessage($data, Connection $client): void;
+    public function onMessage($message): void;
+
+    /**
+     * @param ChannelMessage $message
+     */
+    public function sendMessage($message);
+
+    /**
+     * @param ChannelEvent $event
+     */
+    public function onEvent($event): void;
+
+    /**
+     * @param ChannelEvent $event
+     */
+    public function sendEvent($event);
+
+    /**
+     * @param string $eventName
+     * @param array $eventData
+     */
+    public function createEvent($eventName, $eventData);
+
+    /**
+     * @param string $eventName
+     * @param array $eventData
+     */
+    public function trigger($eventName, $eventData = []);
+
+    /**
+     * @param ChannelQuestion $question
+     */
+    public function onQuestion($question);
+
+    /**
+     * @param Connection $connection
+     * @param mixed $authData
+     * @return bool;
+     */
+    public function checkAuthData($connection, $authData);
+
+    /**
+     * @return bool
+     */
+    public function isClosed();
+
+    public function close();
+
+    public function open();
 
     /**
      * @param string $password
@@ -50,6 +102,16 @@ interface ChannelInterface
     /**
      * @return array
      */
+    public function getData();
+
+    /**
+     * @return array
+     */
+    public function getConnectionsData();
+
+    /**
+     * @return array
+     */
     public function getConnections();
 
     /**
@@ -58,12 +120,13 @@ interface ChannelInterface
     public function getConnectionIds();
 
     /**
-     * @return array
-     */
-    public function getConnectionsData();
-
-    /**
      * @return int
      */
     public function getConnectionsCount();
+
+    /**
+     * @param string $id
+     * @return bool
+     */
+    public function hasConnection($id);
 }

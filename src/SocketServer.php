@@ -64,7 +64,12 @@ class SocketServer extends ProcessApplication
         $this->_connectionRepo = new ConnectionRepository($this, $config);
         $this->_originValidator = new OriginValidator($config);
 
-        $this->log('Server created');
+        $this->log('Server created', 'lifecycle');
+    }
+
+    public function __destruct()
+    {
+        $this->log('Server closed', 'lifecycle');
     }
 
     /**
@@ -137,21 +142,12 @@ class SocketServer extends ProcessApplication
         }
     }
 
-    /**
-     * @param string $message
-     * @param string $type
-     */
-    public function log($message, $type = null)
-    {
-//        echo date('Y-m-d H:i:s') . ' [' . ($type ? $type : 'error') . '] ' . $message . PHP_EOL;
-    }
-
     final protected function process()
     {
         try {
             $this->iteration();
         } catch (Exception $e) {
-            $this->log($e->getMessage());
+            $this->log($e->getMessage(), 'error');
         }
     }
 
@@ -205,7 +201,7 @@ class SocketServer extends ProcessApplication
     {
         $socket = Socket::createClientSocket($this->masterSocket);
         if ($socket->hasError()) {
-            $this->log('Socket error: ' . $socket->getErrorString());
+            $this->log('Socket error: ' . $socket->getErrorString(), 'error');
             return;
         }
 

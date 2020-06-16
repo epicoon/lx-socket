@@ -3,6 +3,9 @@
 namespace lx\socket;
 
 use lx\socket\Channel\ChannelInterface;
+use lx\socket\Channel\ChannelMessage;
+use lx\socket\Channel\ChannelEvent;
+use lx\socket\Channel\ChannelQuestion;
 use RuntimeException;
 
 class Connection
@@ -177,14 +180,14 @@ class Connection
      * @param string $message
      * @param string $type
      */
-    public function log(string $message, string $type = 'info'): void
+    public function log(string $message, string $type = 'lifecycle'): void
     {
         $this->server->log('[client ' . $this->ip . ':' . $this->port . '] ' . $message, $type);
     }
 
     public function onDisconnect(): void
     {
-        $this->log('Disconnected', 'info');
+        $this->log('Disconnected');
         $this->close(1000);
     }
 
@@ -253,31 +256,46 @@ class Connection
     private function processMessage($message)
     {
         $message = json_decode($message, true);
-        $action = $message['__action__'] ?? null;
 
-        if (!$action) {
-            $this->channel->onMessage($message, $this);
-        }
-
-        switch ($action) {
-            case 'connection':
-                if ($this->channelOpenData === false) {
-                    if ($this->channel->requirePassword()) {
-                        if (!$this->channel->checkPassword($message['password'] ?? null)) {
+        $action = $message['__lxws_action__'] ?? null;
+        if ($action) {
+            switch ($action) {
+                case 'connection':
+                    if ($this->channelOpenData === false) {
+                        if (!$this->channel->checkAuthData($this, $message['auth'] ?? null)) {
                             $this->server->connections->remove($this, false);
                             return;
                         }
-                    }
 
-                    $this->channelOpenData = $message['channelOpenData'] ?? true;
-                    if (!$this->channelOpenData) {
-                        $this->channelOpenData = true;
-                    }
+                        $this->channelOpenData = $message['channelOpenData'] ?? true;
+                        if (!$this->channelOpenData) {
+                            $this->channelOpenData = true;
+                        }
 
-                    $this->channel->onConnect($this);
-                }
-                break;
+                        $this->channel->onConnect($this);
+                    }
+                    break;
+            }
+
+            return;
         }
+
+        $eventName = $message['__metaData__']['__event__'] ?? null;
+        if ($eventName) {
+            $event = new ChannelEvent($eventName, $message, $this->getClientChannel(), $this);
+            $this->channel->onEvent($event);
+            return;
+        }
+
+        $isQuestion = $message['__metaData__']['__question__'] ?? null;
+        if ($isQuestion) {
+            $question = new ChannelQuestion($message, $this->getClientChannel(), $this);
+            $this->channel->onQuestion($question);
+            return;
+        }
+
+
+        $this->channel->onMessage(new ChannelMessage($message, $this->getClientChannel(), $this));
     }
 
     /**
@@ -292,6 +310,7 @@ class Connection
 
             $this->send([
                 'id' => $this->id,
+                'channelData' => $this->channel->getData(),
                 'connections' => $this->channel->getConnectionsData(),
             ]);
         }
@@ -381,6 +400,13 @@ class Connection
         }
 
         $this->channel = $this->server->channels->get($channelKey);
+        if ($this->channel->isClosed()) {
+            $this->log('Channel is closed.');
+            $this->sendHttpResponse(403);
+            $this->socket->shutdown();
+            $this->server->connections->remove($this, false);
+            return false;
+        }
 
         // generate headers array:
         $headers = [];

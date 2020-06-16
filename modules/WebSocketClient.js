@@ -2,37 +2,52 @@
 
 #lx:private;
 
+#lx:require ChannelMate;
+#lx:require Message;
+#lx:require EventListener;
+#lx:require Event;
+
 class WebSocketClient #lx:namespace lx.socket {
     constructor(port, channel, handlers) {
         this._port = port || null;
         this._channel = channel || null;
         this._urlPrefix = 'ws://' + document.location.hostname;
         this._channelOpenData = null;
-        this._channelPassword = null;
+        this._channelAuthData = null;
 
         this._socket = null;
         this._id = null;
         this._channelMates = {};
+        this._channelData = {};
         this._beforeSend = null;
         this._onClientJoin = null;
         this._onClientLeave = null;
         this._onConnected = null;
+        this._onEvent = null;
         this._onopen = null;
         this._onmessage = null;
         this._onclose = null;
         this._onerror = null;
         this._errors = [];
 
+        this.__qCounter = 0;
+        this.__qBuffer = {};
+
         if (handlers) {
             if (handlers.beforeSend) this._beforeSend = handlers.beforeSend;
             if (handlers.onClientJoin) this._onClientJoin = handlers.onClientJoin;
             if (handlers.onClientLeave) this._onClientLeave = handlers.onClientLeave;
             if (handlers.onConnected) this._onConnected = handlers.onConnected;
+            if (handlers.onChannelEvent) {
+                this._onEvent = handlers.onChannelEvent;
+                if (this._onEvent instanceof lx.socket.EventListener) this._onEvent.setSocket(this);
+            }
 
             if (handlers.onOpen) this._onopen = handlers.onOpen;
             if (handlers.onMessage) this._onmessage = handlers.onMessage;
             if (handlers.onClose) this._onclose = handlers.onClose;
             if (handlers.onError) this._onerror = handlers.onError;
+
             __setSocketHandlers(this);
         }
     }
@@ -59,7 +74,21 @@ class WebSocketClient #lx:namespace lx.socket {
     }
 
     getChannelMates() {
-        return this._channelMates.lxClone();
+        return this._channelMates;
+    }
+
+    getChannelMate(id) {
+        if (id in this._channelMates)
+            return this._channelMates[id];
+        return null;
+    }
+
+    getLocalMate() {
+        return this._channelMates[this._id];
+    }
+
+    getChannelData() {
+        return this._channelData.lxClone();
     }
 
     isConnected() {
@@ -93,7 +122,7 @@ class WebSocketClient #lx:namespace lx.socket {
         }
 
         this._channelOpenData = channelOpenData;
-        this._channelPassword = password;
+        this._channelAuthData = password;
         if (window.MozWebSocket) this._socket = new MozWebSocket(url);
         else if (window.WebSocket) this._socket = new WebSocket(url);
         this._socket.binaryType = 'blob';
@@ -105,10 +134,28 @@ class WebSocketClient #lx:namespace lx.socket {
         if (!this.isConnected()) return;
 
         this._socket.close();
-        // this._socket = null;
     }
 
-    send(data) {
+    send(data, receivers = null, privateMode = false) {
+        var msg = __prepareMessageForSend(data, receivers, privateMode);
+        this.sendData(msg);
+    }
+
+    trigger(eventName, data = {}, receivers = null, privateMode = false) {
+        var msg = __prepareMessageForSend(data, receivers, privateMode);
+        msg.__metaData__.__event__ = eventName;
+        this.sendData(msg);
+    }
+
+    ask(questionName, data, callback) {
+        var msg = __prepareMessageForSend(data, [this._id], true);
+        var number = __getQuestionNumber(this);
+        this.__qBuffer[number] = callback;
+        msg.__metaData__.__question__ = {name:questionName, number};
+        this.sendData(msg);
+    }
+
+    sendData(data) {
         if (!this.isConnected()) return;
         if (this._beforeSend && !this._beforeSend(data)) return;
         this._socket.send(JSON.stringify(data));
@@ -157,55 +204,92 @@ function __setSocketHandlerOnOpen(self) {
 }
 
 function __setSocketHandlerOnMessage(self) {
-    if (self._onmessage === null || self._socket === null) return;
+    if (self._socket === null) return;
     self._socket.onmessage =(e)=>{
         let msg = JSON.parse(e.data);
 
         if (self._id === null) {
             self._id = msg.id;
             self._channelOpenData.id = self._id;
-            self._channelMates = msg.connections.isArray ? {} : msg.connections;
-            if (self._onConnected) self._onConnected(self.getChannelMates());
+            self._channelMates = {};
+            for (var mateId in msg.connections) {
+                self._channelMates[mateId] = new lx.socket.ChannelMate(self, mateId, msg.connections[mateId]);
+            }
+            self._channelData = msg.channelData.isArray ? {} : msg.channelData;
+            if (self._onConnected) self._onConnected(self.getChannelMates(), self.getChannelData());
             let data = {
-                __action__: 'connection',
+                __lxws_action__: 'connection',
                 channelOpenData: self._channelOpenData || true
             };
-            if (self._channelPassword) data.password = self._channelPassword;
-            self.send(data);
+            if (self._channelAuthData) data.auth = self._channelAuthData;
+            self.sendData(data);
             return;
         }
 
-        if (msg.__event__) {
-            switch (msg.__event__) {
+        if (msg.__lxws_event__) {
+            switch (msg.__lxws_event__) {
                 case 'clientJoin':
-                    self._channelMates[msg.client.id] = msg.client;
-                    self._onClientJoin(msg.client);
+                    var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
+                    self._channelMates[msg.client.id] = mate;
+                    if (self._onClientJoin) self._onClientJoin(mate);
                     break;
                 case 'clientLeave':
+                    var mate = self._channelMates[msg.client.id];
                     delete self._channelMates[msg.client.id];
-                    self._onClientLeave(msg.client);
+                    if (self._onClientLeave) self._onClientLeave(mate);
                     break;
             }
             return;
         }
 
-        self._onmessage(msg);
+        if (msg.__event__ && self._onEvent) {
+            let event = new lx.socket.Event(msg.__event__, self, msg);
+            if (self._onEvent instanceof lx.socket.EventListener)
+                self._onEvent.processEvent(event);
+            else if (self._onEvent.isFunction)
+                self._onEvent(event);
+            return;
+        }
+
+        if (msg.__answer__) {
+            if (msg.__answer__ in self.__qBuffer) {
+                let f = self.__qBuffer[msg.__answer__];
+                delete self.__qBuffer[msg.__answer__];
+                f(msg.data);
+            }
+            return;
+        }
+
+        if (self._onmessage) self._onmessage(new lx.socket.Message(self, msg));
     };
 }
 
 function __setSocketHandlerOnClose(self) {
-    if (self._onclose === null || self._socket === null) return;
+    if (self._socket === null) return;
     self._socket.onclose =(e)=>{
-        self._onclose(e);
+        if (self._onclose) self._onclose(e);
         self._socket = null;
     };
 }
 
 function __setSocketHandlerOnError(self) {
-    if (self._onerror === null || self._socket === null) return;
+    if (self._socket === null) return;
     self._socket.onerror =(e)=>{
         self._errors.push(e);
-        self._onerror(e);
+        if (self._onerror) self._onerror(e);
         self._socket = null;
     };
+}
+
+function __prepareMessageForSend(data, receivers, privateMode) {
+    var result = {__data__:data, __metaData__:{}};
+    if (receivers) result.__metaData__.receivers = receivers;
+    result.__metaData__.private = (!result.__metaData__.receivers) ? false : privateMode;
+    return result;
+}
+
+function __getQuestionNumber(self) {
+    if (self.__qCounter == 999999) self.__qCounter = 0;
+    self.__qCounter++;
+    return self.__qCounter;
 }

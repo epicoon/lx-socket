@@ -52,23 +52,38 @@ class ChannelRepository
     /**
      * @param string $channelName
      * @param string $channelClassName
-     * @param array $metaData
-     * @return bool
+     * @param array $config
+     * @return ChannelInterface|null
      */
-    public function create(string $channelName, string $channelClassName, array $metaData = [])
+    public function create(string $channelName, string $channelClassName, array $config = []) : ?ChannelInterface
     {
         if ($this->has($channelName)) {
             //TODO log
-            return false;
+            return null;
         }
 
         if (!is_subclass_of($channelClassName, ChannelInterface::class)) {
             //TODO log
-            return false;
+            return null;
         }
 
-        $this->channels[$channelName] = new $channelClassName($metaData);
+        $config['name'] = $channelName;
+        $channel = \lx::$app->diProcessor->create($channelClassName, $config);
+        $this->channels[$channelName] = $channel;
 
-        return true;
+        return $channel;
+    }
+
+    /**
+     * @param string $channelName
+     */
+    public function close(string $channelName)
+    {
+        if (!$this->has($channelName)) {
+            return;
+        }
+
+        $this->get($channelName)->close();
+        unset($this->channels[$channelName]);
     }
 }

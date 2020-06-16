@@ -3,27 +3,95 @@
 namespace lx\socket\Channel;
 
 use InvalidArgumentException;
+use lx\ObjectTrait;
 use lx\socket\Connection;
 use RuntimeException;
 
 abstract class Channel implements ChannelInterface
 {
+    use ObjectTrait;
+
+    /** @var string */
+    protected $name;
+
     /** @var array&Connection[] */
     protected $connections = [];
 
+    /** @var ChannelEventListenerInterface */
+    protected $eventListener;
+    
     /** @var array */
     protected $metaData = [];
 
     /** @var null|string */
     protected $password = null;
 
+    /** @var bool */
+    protected $isClosed = false;
+
     /**
-     * Channel constructor.
-     * @param array $metaData
+     * @return array
      */
-    public function __construct($metaData = [])
+    public static function getConfigProtocol()
     {
-        $this->metaData = $metaData;
+        return [
+            'name' => true,
+            'metaData' => true,
+            'eventListener' => ChannelEventListener::class,
+        ];
+    }
+
+    /**
+     * @return string
+     */
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    /**
+     * @param Connection $connection
+     * @param mixed $authData
+     * @return bool;
+     */
+    public function checkAuthData($connection, $authData)
+    {
+        if ($this->requirePassword()) {
+
+            return $this->checkPassword($authData);
+        }
+
+        return true;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isClosed()
+    {
+        return $this->isClosed;
+    }
+    
+    public function close()
+    {
+        if ($this->isClosed) {
+            return;
+        }
+
+        foreach ($this->connections as $connection) {
+            $connection->close(1001);
+        }
+
+        $this->isClosed = true;
+    }
+    
+    public function open()
+    {
+        if (!$this->isClosed) {
+            return;
+        }
+        
+        $this->isClosed = false;
     }
 
     /**
@@ -64,17 +132,9 @@ abstract class Channel implements ChannelInterface
     /**
      * @return array
      */
-    public function getConnections()
+    public function getData()
     {
-        return $this->connections;
-    }
-
-    /**
-     * @return array
-     */
-    public function getConnectionIds()
-    {
-        return array_keys($this->connections);
+        return [];
     }
 
     /**
@@ -90,6 +150,22 @@ abstract class Channel implements ChannelInterface
     }
 
     /**
+     * @return array
+     */
+    public function getConnections()
+    {
+        return $this->connections;
+    }
+
+    /**
+     * @return array
+     */
+    public function getConnectionIds()
+    {
+        return array_keys($this->connections);
+    }
+
+    /**
      * @return int
      */
     public function getConnectionsCount()
@@ -97,6 +173,15 @@ abstract class Channel implements ChannelInterface
         return count($this->connections);
     }
 
+    /**
+     * @param string $id
+     * @return bool
+     */
+    public function hasConnection($id)
+    {
+        return array_key_exists($id, $this->connections);
+    }
+    
     /**
      * @param Connection $connection
      */
@@ -108,7 +193,7 @@ abstract class Channel implements ChannelInterface
         $clientData = $connection->getChannelOpenData();
         foreach ($this->connections as $otherConnection) {
             $otherConnection->send([
-                '__event__' => 'clientJoin',
+                '__lxws_event__' => 'clientJoin',
                 'client' => $clientData,
             ]);
         }
@@ -125,65 +210,87 @@ abstract class Channel implements ChannelInterface
         $clientData = $connection->getChannelOpenData();
         foreach ($this->connections as $otherConnection) {
             $otherConnection->send([
-                '__event__' => 'clientLeave',
+                '__lxws_event__' => 'clientLeave',
                 'client' => $clientData,
             ]);
         }
     }
 
-
-
-
-
-
-
-
-
-
-    //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     /**
-     * @param string $data
-     * @throws RuntimeException
-     * @return array
+     * @param ChannelMessage $message
      */
-    protected function decodeData(string $data): array
+    public function onMessage($message): void
     {
-        $decodedData = json_decode($data, true);
-        if (empty($decodedData)) {
-            throw new RuntimeException('Could not decode data.');
+        $this->sendMessage($message);
+    }
+
+    /**
+     * @param ChannelMessage $message
+     */
+    public function sendMessage($message)
+    {
+        $receivers = $message->getReceivers();
+        foreach ($receivers as $id => $receiver) {
+            $receiver->send($message->getDataForConnection($id));
+        }
+    }
+
+    /**
+     * @param ChannelEvent $event
+     */
+    public function onEvent($event): void
+    {
+        if (!isset($this->eventListener)) {
+            return;
         }
 
-//        if (isset($decodedData['action'], $decodedData['data']) === false) {
-//            throw new RuntimeException('Decoded data is invalid.');
-//        }
-
-        return $decodedData;
+        $this->eventListener->processEvent($event);
+        $this->sendEvent($event);
     }
 
     /**
-     * @param string $action
-     * @param mixed $data
-     * @throws InvalidArgumentException
-     * @return string
+     * @param ChannelEvent $event
      */
-    protected function encodeData(string $action, $data): string
+    public function sendEvent($event)
     {
-        if (empty($action)) {
-            throw new InvalidArgumentException('Action can not be empty.');
-        };
+        if ($event->isStopped()) {
+            return;
+        }
 
-        return json_encode([
-            'action' => $action,
-            'data' => $data
-        ]);
+        if ($event->isMultiple()) {
+            $events = $event->getSubEvents();
+            foreach ($events as $subEvent) {
+                $this->sendMessage($subEvent);
+            }
+        } else {
+            $this->sendMessage($event);
+        }
     }
 
+    /**
+     * @param string $eventName
+     * @param array|null $eventData
+     */
+    public function createEvent($eventName, $eventData = [])
+    {
+        return new ChannelEvent($eventName, $eventData, $this);
+    }
 
+    /**
+     * @param string $eventName
+     * @param array $eventData
+     */
+    public function trigger($eventName, $eventData = [])
+    {
+        $event = $this->createEvent($eventName, $eventData);
+        $this->sendEvent($event);
+    }
 
-
-
-
-
-
-
+    /**
+     * @param ChannelQuestion $question
+     */
+    public function onQuestion($question)
+    {
+        $this->sendMessage($question);
+    }
 }
