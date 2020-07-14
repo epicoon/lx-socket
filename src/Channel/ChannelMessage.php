@@ -2,6 +2,7 @@
 
 namespace lx\socket\Channel;
 
+use lx\ArrayHelper;
 use lx\socket\Connection;
 
 /**
@@ -130,6 +131,14 @@ class ChannelMessage
     public function setData($data)
     {
         $this->data = $data;
+    }
+
+    /**
+     * @param array $data
+     */
+    public function addData($data)
+    {
+        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true);
     }
 
     /**

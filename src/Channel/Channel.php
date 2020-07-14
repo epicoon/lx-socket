@@ -30,6 +30,21 @@ abstract class Channel implements ChannelInterface
     protected $isClosed = false;
 
     /**
+     * Channel constructor.
+     * @param array $config
+     */
+    public function __construct($config = [])
+    {
+        $this->__objectConstruct($config);
+        $this->init();
+    }
+
+    public function init()
+    {
+        // pass
+    }
+
+    /**
      * @return array
      */
     public static function getConfigProtocol()
@@ -244,7 +259,10 @@ abstract class Channel implements ChannelInterface
             return;
         }
 
-        $this->eventListener->processEvent($event);
+        if ($this->eventListener->processEvent($event) === false) {
+            return;
+        }
+
         $this->sendEvent($event);
     }
 
@@ -257,13 +275,13 @@ abstract class Channel implements ChannelInterface
             return;
         }
 
-        if ($event->isMultiple()) {
+        $this->sendMessage($event);
+
+        if ($event->isMultiple() && $event->isAsync()) {
             $events = $event->getSubEvents();
             foreach ($events as $subEvent) {
                 $this->sendMessage($subEvent);
             }
-        } else {
-            $this->sendMessage($event);
         }
     }
 

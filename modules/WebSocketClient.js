@@ -243,11 +243,12 @@ function __setSocketHandlerOnMessage(self) {
         }
 
         if (msg.__event__ && self._onEvent) {
-            let event = new lx.socket.Event(msg.__event__, self, msg);
-            if (self._onEvent instanceof lx.socket.EventListener)
-                self._onEvent.processEvent(event);
-            else if (self._onEvent.isFunction)
-                self._onEvent(event);
+            __processEvent(self, msg);
+            return;
+        }
+
+        if (msg.__multipleEvents__ && self._onEvent) {
+            msg.__multipleEvents__.each(e=>__processEvent(self, e));
             return;
         }
 
@@ -292,4 +293,12 @@ function __getQuestionNumber(self) {
     if (self.__qCounter == 999999) self.__qCounter = 0;
     self.__qCounter++;
     return self.__qCounter;
+}
+
+function __processEvent(self, msg) {
+    let event = new lx.socket.Event(msg.__event__, self, msg);
+    if (self._onEvent instanceof lx.socket.EventListener)
+        self._onEvent.processEvent(event);
+    else if (self._onEvent.isFunction)
+        self._onEvent(event);
 }

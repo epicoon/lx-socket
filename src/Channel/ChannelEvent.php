@@ -32,7 +32,9 @@ class ChannelEvent extends ChannelMessage
 
         $this->name = $name;
         $this->isStopped = false;
+
         $this->subEvents = [];
+        $this->isAsync = true;
     }
     
     /**
@@ -44,16 +46,21 @@ class ChannelEvent extends ChannelMessage
     }
 
     /**
-     * @return array
+     * @param string $eventName
+     * @param mixed $eventData
+     * @return ChannelEvent
      */
-    public function getSubEvents()
+    public function replaceEvent($eventName, $eventData)
     {
-        return $this->subEvents;
+        $this->name = $eventName;
+        $this->data = $eventData;
+        return $this;
     }
 
     /**
      * @param string $eventName
      * @param mixed $eventData
+     * @return ChannelEvent
      */
     public function addSubEvent($eventName, $eventData)
     {
@@ -62,6 +69,22 @@ class ChannelEvent extends ChannelMessage
         $event->private = $this->private;
         $this->subEvents[] = $event;
         return $event;
+    }
+
+    /**
+     * @param bool $value
+     */
+    public function setAsync($value)
+    {
+        $this->isAsync = $value;
+    }
+
+    /**
+     * @return ChannelEvent[]
+     */
+    public function getSubEvents()
+    {
+        return $this->subEvents;
     }
 
     public function stop()
@@ -86,14 +109,39 @@ class ChannelEvent extends ChannelMessage
     }
 
     /**
+     * @return bool
+     */
+    public function isAsync()
+    {
+        return $this->isAsync;
+    }
+
+    /**
      * @param string $connectionId
      * @return array
      */
     public function getDataForConnection($connectionId)
     {
+        if ($this->isMultiple() && !$this->isAsync()) {
+            $result = [
+                '__multipleEvents__' => [
+                    array_merge(
+                        parent::getDataForConnection($connectionId),
+                        ['__event__' => $this->getName()]
+                    )
+                ],
+            ];
+            foreach ($this->getSubEvents() as $subEvent) {
+                $result['__multipleEvents__'][] = array_merge(
+                    $subEvent->getDataForConnection($connectionId),
+                    ['__event__' => $subEvent->getName()]
+                );
+            }
+            return $result;
+        }
+
         $result = parent::getDataForConnection($connectionId);
         $result['__event__'] = $this->getName();
-
         return $result;
     }
 }

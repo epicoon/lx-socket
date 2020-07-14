@@ -2,6 +2,8 @@
 
 namespace lx\socket\Channel;
 
+use lx\StringHelper;
+
 /**
  * Class ChannelEventListener
  * @package lx\socket\Channel
@@ -9,10 +11,47 @@ namespace lx\socket\Channel;
 class ChannelEventListener implements ChannelEventListenerInterface
 {
     /**
+     * @return array
+     */
+    public function getAvailableEventNames()
+    {
+        return [];
+    }
+
+    /**
      * @param ChannelEvent $event
+     * @return bool
      */
     public function processEvent($event)
     {
-        // pass
+        if (in_array($event->getName(), $this->getAvailableEventNames())) {
+            return;
+        }
+
+        $eventName = StringHelper::snakeToCamel('on-' . $event->getName(), ['_', '-']);
+
+        if (method_exists($this, $eventName)) {
+            $result = $this->$eventName($event);
+        } else {
+            $result = $this->processEventDefault($event);
+        }
+
+        if ($result === null) {
+            $result = true;
+        }
+        return $result;
+    }
+
+    /**
+     * @param ChannelEvent $event
+     * @return bool
+     */
+    public function processEventDefault($event)
+    {
+        $event->replaceEvent('error', [
+            'message' => 'Unknown event'
+        ]);
+
+        return true;
     }
 }
