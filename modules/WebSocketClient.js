@@ -261,6 +261,11 @@ function __setSocketHandlerOnMessage(self) {
             return;
         }
 
+        if (msg.__dump__) {
+            lx.Alert(msg.__dump__)
+            return;
+        }
+
         if (self._onmessage) self._onmessage(new lx.socket.Message(self, msg));
     };
 }

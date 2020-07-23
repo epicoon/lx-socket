@@ -144,4 +144,17 @@ class ChannelEvent extends ChannelMessage
         $result['__event__'] = $this->getName();
         return $result;
     }
+
+    /**
+     * @param mixed $data
+     */
+    public function dump($data)
+    {
+        ob_start();
+        var_dump($data);
+        $out = ob_get_clean();
+        $this->getInitiator()->send([
+            '__dump__' => $out,
+        ]);
+    }
 }
