@@ -2,6 +2,8 @@
 
 namespace lx\socket\Channel;
 
+use lx;
+use Exception;
 use InvalidArgumentException;
 use lx\ObjectTrait;
 use lx\socket\Connection;
@@ -310,5 +312,40 @@ abstract class Channel implements ChannelInterface
     public function onQuestion($question)
     {
         $this->sendMessage($question);
+    }
+
+    /**
+     * For development only!
+     *
+     * @param string $requestForDump
+     * @return string
+     */
+    public function onDump($requestForDump)
+    {
+        if (!lx::$app->isMode('dev')) {
+            return '';
+        }
+
+        try {
+            $result = $this->forDump($requestForDump);
+            if ($result === null) {
+                return '';
+            }
+
+            return lx::getDumpString($result);
+        } catch (Exception $exception) {
+            return $exception->getMessage();
+        }
+    }
+
+    /**
+     * For development only!
+     *
+     * @param string $key
+     * @return mixed|null
+     */
+    public function forDump($key)
+    {
+        return null;
     }
 }

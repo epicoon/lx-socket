@@ -2,6 +2,7 @@
 
 namespace lx\socket;
 
+use lx;
 use lx\socket\Channel\ChannelInterface;
 use lx\socket\Channel\ChannelMessage;
 use lx\socket\Channel\ChannelEvent;
@@ -294,6 +295,16 @@ class Connection
             return;
         }
 
+        if (lx::$app->isMode('dev')) {
+            $requestForDump = $message['__metaData__']['__dump__'] ?? null;
+            if ($requestForDump) {
+                $result = $this->channel->onDump($requestForDump);
+                $this->send([
+                    '__dump__' => $result,
+                ]);
+            }
+            return;
+        }
 
         $this->channel->onMessage(new ChannelMessage($message, $this->getClientChannel(), $this));
     }

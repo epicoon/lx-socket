@@ -129,4 +129,20 @@ interface ChannelInterface
      * @return bool
      */
     public function hasConnection($id);
+
+    /**
+     * For development only!
+     *
+     * @param string $requestForDump
+     * @return string
+     */
+    public function onDump($requestForDump);
+
+    /**
+     * For development only!
+     *
+     * @param string $key
+     * @return mixed|null
+     */
+    public function forDump($key);
 }

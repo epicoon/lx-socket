@@ -2,6 +2,7 @@
 
 namespace lx\socket\Channel;
 
+use lx;
 use lx\socket\Connection;
 
 /**
@@ -150,11 +151,8 @@ class ChannelEvent extends ChannelMessage
      */
     public function dump($data)
     {
-        ob_start();
-        var_dump($data);
-        $out = ob_get_clean();
         $this->getInitiator()->send([
-            '__dump__' => $out,
+            '__dump__' => lx::getDumpString($data),
         ]);
     }
 }
