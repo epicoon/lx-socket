@@ -27,7 +27,7 @@ class WebSocketClient #lx:namespace lx.socket {
         this._onopen = null;
         this._onmessage = null;
         this._onclose = null;
-        this._onerror = null;
+        this._onError = null;
         this._errors = [];
 
         this.__qCounter = 0;
@@ -46,7 +46,7 @@ class WebSocketClient #lx:namespace lx.socket {
             if (handlers.onOpen) this._onopen = handlers.onOpen;
             if (handlers.onMessage) this._onmessage = handlers.onMessage;
             if (handlers.onClose) this._onclose = handlers.onClose;
-            if (handlers.onError) this._onerror = handlers.onError;
+            if (handlers.onError) this._onError = handlers.onError;
 
             __setSocketHandlers(this);
         }
@@ -187,7 +187,7 @@ class WebSocketClient #lx:namespace lx.socket {
     }
 
     onError(func) {
-        this._onerror = func;
+        this._onError = func;
         __setSocketHandlerOnError(this);
     }
 }
@@ -286,9 +286,9 @@ function __setSocketHandlerOnClose(self) {
 
 function __setSocketHandlerOnError(self) {
     if (self._socket === null) return;
-    self._socket.onerror =(e)=>{
+    self._socket.onError =(e)=>{
         self._errors.push(e);
-        if (self._onerror) self._onerror(e);
+        if (self._onError) self._onError(e);
         self._socket = null;
     };
 }
