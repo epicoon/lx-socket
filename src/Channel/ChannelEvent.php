@@ -51,7 +51,7 @@ class ChannelEvent extends ChannelMessage
      * @param mixed $eventData
      * @return ChannelEvent
      */
-    public function replaceEvent($eventName, $eventData)
+    public function replaceEvent($eventName, $eventData = [])
     {
         $this->name = $eventName;
         $this->data = $eventData;
@@ -63,7 +63,7 @@ class ChannelEvent extends ChannelMessage
      * @param mixed $eventData
      * @return ChannelEvent
      */
-    public function addSubEvent($eventName, $eventData)
+    public function addSubEvent($eventName, $eventData = [])
     {
         $event = new self($eventName, $eventData, $this->getChannel(), $this->getInitiator());
         $event->receivers = $this->receivers;
