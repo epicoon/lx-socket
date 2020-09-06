@@ -155,12 +155,6 @@ class WebSocketClient #lx:namespace lx.socket {
         this.sendData(msg);
     }
 
-    dump(str = '') {
-        this.sendData({
-            __metaData__: {__dump__: str}
-        });
-    }
-
     sendData(data) {
         if (!this.isConnected()) return;
         if (this._beforeSend && !this._beforeSend(data)) return;
