@@ -102,10 +102,23 @@ class ChannelMessage
     }
 
     /**
-     * @param array|null $receiverIds
+     * @param string|Connection|string[]|Connection[]|null $receiverIds
      */
-    public function setReceivers($receiverIds)
+    public function setReceivers($receivers)
     {
+        if (!is_array($receivers)) {
+            $receivers = [$receivers];
+        }
+
+        $receiverIds = [];
+        foreach ($receivers as $receiver) {
+            if ($receiver instanceof Connection) {
+                $receiverIds[] = $receiver->getId();
+            } elseif (is_string($receiver)) {
+                $receiverIds[] = $receiver;
+            }
+        }
+
         $this->receivers = $receiverIds;
     }
 
@@ -168,6 +181,16 @@ class ChannelMessage
     public function setDataForConnection($connectionId, $data)
     {
         $this->dataForConnections[$connectionId] = $data;
+    }
+
+    /**
+     * @param string $connectionId
+     * @param string $key
+     * @param mixed $data
+     */
+    public function addDataForConnection($connectionId, $key, $data)
+    {
+        $this->dataForConnections[$connectionId][$key] = $data;
     }
 
     /**

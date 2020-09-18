@@ -17,8 +17,14 @@ class EventListener #lx:namespace lx.socket
             return match.toUpperCase();
         });
 
+        event = this.preprocessEvent(event);
+
         if (this.lxHasMethod(methodName)) this[methodName](event);
         else this.onEvent(event);
+    }
+
+    preprocessEvent(event) {
+        return event;
     }
 
     onEvent(event) {
