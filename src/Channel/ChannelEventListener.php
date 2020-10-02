@@ -10,12 +10,32 @@ use lx\StringHelper;
  */
 class ChannelEventListener implements ChannelEventListenerInterface
 {
+    /** @var ChannelInterface */
+    private $channel;
+
     /**
      * @return array
      */
     public function getAvailableEventNames()
     {
         return [];
+    }
+
+    /**
+     * @param ChannelInterface $channel
+     * @return void
+     */
+    public function setChannel($channel)
+    {
+        $this->channel = $channel;
+    }
+
+    /**
+     * @return ChannelInterface
+     */
+    public function getChannel()
+    {
+        return $this->channel;
     }
 
     /**

@@ -175,30 +175,42 @@ class ChannelMessage
     }
 
     /**
-     * @param string $connectionId
+     * @param Connection|string $connectionId
      * @param array $data
      */
     public function setDataForConnection($connectionId, $data)
     {
+        if ($connectionId instanceof Connection) {
+            $connectionId = $connectionId->getId();
+        }
+
         $this->dataForConnections[$connectionId] = $data;
     }
 
     /**
-     * @param string $connectionId
+     * @param Connection|string $connectionId
      * @param string $key
      * @param mixed $data
      */
     public function addDataForConnection($connectionId, $key, $data)
     {
+        if ($connectionId instanceof Connection) {
+            $connectionId = $connectionId->getId();
+        }
+
         $this->dataForConnections[$connectionId][$key] = $data;
     }
 
     /**
-     * @param string $connectionId
+     * @param Connection|string $connectionId
      * @return array
      */
     public function getDataForConnection($connectionId)
     {
+        if ($connectionId instanceof Connection) {
+            $connectionId = $connectionId->getId();
+        }
+
         $result = [
             'data' => $this->getData(),
             'private' => $this->isPrivate(),

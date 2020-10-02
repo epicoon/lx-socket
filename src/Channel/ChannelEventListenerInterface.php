@@ -9,6 +9,17 @@ namespace lx\socket\Channel;
 interface ChannelEventListenerInterface
 {
     /**
+     * @param ChannelInterface $channel
+     * @return void
+     */
+    public function setChannel($channel);
+
+    /**
+     * @return ChannelInterface
+     */
+    public function getChannel();
+
+    /**
      * @return array
      */
     public function getAvailableEventNames();
