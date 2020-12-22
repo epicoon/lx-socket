@@ -8,10 +8,10 @@
 #lx:require Event;
 
 class WebSocketClient #lx:namespace lx.socket {
-    constructor(port, channel, handlers) {
+    constructor(protocol, port, channel, handlers) {
         this._port = port || null;
         this._channel = channel || null;
-        this._urlPrefix = 'ws://' + document.location.hostname;
+        this._urlPrefix = protocol + '://' + document.location.hostname;
         this._channelOpenData = null;
         this._channelAuthData = null;
 
