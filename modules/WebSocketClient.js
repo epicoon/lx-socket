@@ -8,10 +8,15 @@
 #lx:require Event;
 
 class WebSocketClient #lx:namespace lx.socket {
-    constructor(protocol, port, channel, handlers) {
-        this._port = port || null;
-        this._channel = channel || null;
-        this._urlPrefix = protocol + '://' + document.location.hostname;
+    /**
+     * @param {Object} config [[protocol, port, url, channel, handlers]]
+     */
+    constructor(config) {
+        this._port = config.port || null;
+        this._channel = config.channel || null;
+        this._urlPrefix = (config.protocol || 'ws') + '://' + document.location.hostname;
+        this._route = config.url ? '/' + config.url : '';
+
         this._channelOpenData = null;
         this._channelAuthData = null;
 
@@ -33,7 +38,8 @@ class WebSocketClient #lx:namespace lx.socket {
         this.__qCounter = 0;
         this.__qBuffer = {};
 
-        if (handlers) {
+        if (config.handlers) {
+            var handlers = config.handlers;
             if (handlers.beforeSend) this._beforeSend = handlers.beforeSend;
             if (handlers.onClientJoin) this._onClientJoin = handlers.onClientJoin;
             if (handlers.onClientLeave) this._onClientLeave = handlers.onClientLeave;
@@ -64,9 +70,9 @@ class WebSocketClient #lx:namespace lx.socket {
         if (this._channel === null) return false;
 
         if (this._port === null)
-            return this._urlPrefix + '/' + this._channel;
+            return this._urlPrefix + this._route + '/' + this._channel;
 
-        return this._urlPrefix + ':' + this._port + '/' + this._channel;
+        return this._urlPrefix + ':' + this._port + this._route + '/' + this._channel;
     }
 
     getId() {
