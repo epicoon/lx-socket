@@ -61,7 +61,11 @@ class WebSocketClient #lx:namespace lx.socket {
     }
 
     getUrl() {
-        if (this._port === null || this._channel === null) return false;
+        if (this._channel === null) return false;
+
+        if (this._port === null)
+            return this._urlPrefix + '/' + this._channel;
+
         return this._urlPrefix + ':' + this._port + '/' + this._channel;
     }
 
