@@ -51,10 +51,7 @@ abstract class Channel implements ChannelInterface
         // pass
     }
 
-    /**
-     * @return array
-     */
-    public static function getConfigProtocol()
+    public static function getConfigProtocol(): array
     {
         return [
             'name' => true,
