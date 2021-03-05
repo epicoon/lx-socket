@@ -45,11 +45,10 @@ class ChannelEventListener implements ChannelEventListenerInterface
     public function processEvent($event)
     {
         if (in_array($event->getName(), $this->getAvailableEventNames())) {
-            return;
+            return true;
         }
-
+        
         $eventName = StringHelper::snakeToCamel('on-' . $event->getName(), ['_', '-']);
-
         if (method_exists($this, $eventName)) {
             $result = $this->$eventName($event);
         } else {

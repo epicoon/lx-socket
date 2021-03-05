@@ -31,11 +31,7 @@ abstract class Channel implements ChannelInterface
     /** @var bool */
     protected $isClosed = false;
 
-    /**
-     * Channel constructor.
-     * @param array $config
-     */
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         $this->__objectConstruct($config);
 
