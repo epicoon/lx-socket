@@ -179,6 +179,11 @@ class SocketServer extends ProcessApplication
 
             $connection->reactToMessage();
         }
+
+        $list = $this->channels->getOnTimer();
+        foreach ($list as $channel) {
+            $channel->onIteration();
+        }
     }
 
     /**

@@ -106,14 +106,9 @@ class ConnectionRepository
 
     /**
      * @param Connection $connection
-     * @param bool $regularMode
      */
-    public function remove(Connection $connection, bool $regularMode = true) : void
+    public function remove(Connection $connection) : void
     {
-        if (!$regularMode && $connection->getClientChannel() !== null) {
-            $connection->getClientChannel()->onDisconnect($connection);
-        }
-
         $connectionId = $connection->getId();
         $socket = $connection->getClientSocket();
         $clientIp = $connection->getClientIp();
@@ -135,6 +130,10 @@ class ConnectionRepository
      */
     public function checkRequestLimit(Connection $connection) : bool
     {
+        if ($connection->isWaitingForData()) {
+            return true;
+        }
+        
         $connectionId = $connection->getId();
 
         if (!array_key_exists($connectionId, $this->requestStorage)) {

@@ -11,6 +11,17 @@ use RuntimeException;
 
 class Connection
 {
+    const CLOSE_CODE_NORMAL = 1000;
+    const CLOSE_CODE_LEAVE = 1001;
+    const CLOSE_CODE_ACCESS_ERROR = 1002;
+    const CLOSE_CODE_PROTOCOL_ERROR = 1003;
+    const CLOSE_CODE_UNKNOWN_DATA = 1004;
+    const CLOSE_CODE_LARGE_FRAME = 1005;
+    const CLOSE_CODE_SOCKET_ERROR = 1006;
+    const CLOSE_CODE_WRONG_ENCODING = 1007;
+    const CLOSE_CODE_POLICY_VIOLATION = 1008;
+    const CLOSE_CODE_REQUEST_LIMIT_EXCEEDED = 1009;
+
     /** @var SocketServer */
     private $server;
 
@@ -125,7 +136,8 @@ class Connection
             $encodedData = $this->hybi10Encode($payload, $type, $masked);
             $this->socket->writeBuffer($encodedData);
         } catch (RuntimeException $e) {
-            $this->server->connections->remove($this, false);
+            $this->channel->onDisconnect($this);
+            $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return false;
         }
 
@@ -135,7 +147,7 @@ class Connection
     /**
      * @param int $statusCode
      */
-    public function close(int $statusCode = 1000): void
+    public function close(int $statusCode = self::CLOSE_CODE_NORMAL): void
     {
         $payload = str_split(sprintf('%016b', $statusCode), 8);
         $payload[0] = chr(bindec($payload[0]));
@@ -143,26 +155,29 @@ class Connection
         $payload = implode('', $payload);
 
         switch ($statusCode) {
-            case 1000:
+            case self::CLOSE_CODE_NORMAL:
                 $payload .= 'normal closure';
                 break;
-            case 1001:
+            case self::CLOSE_CODE_LEAVE:
                 $payload .= 'going away';
                 break;
-            case 1002:
+            case self::CLOSE_CODE_PROTOCOL_ERROR:
                 $payload .= 'protocol error';
                 break;
-            case 1003:
+            case self::CLOSE_CODE_UNKNOWN_DATA:
                 $payload .= 'unknown data (opcode)';
                 break;
-            case 1004:
+            case self::CLOSE_CODE_LARGE_FRAME:
                 $payload .= 'frame too large';
                 break;
-            case 1007:
+            case self::CLOSE_CODE_WRONG_ENCODING:
                 $payload .= 'utf8 expected';
                 break;
-            case 1008:
+            case self::CLOSE_CODE_POLICY_VIOLATION:
                 $payload .= 'message violates server policy';
+                break;
+            case self::CLOSE_CODE_REQUEST_LIMIT_EXCEEDED:
+                $payload .= 'request limit exceeded';
                 break;
         }
 
@@ -170,11 +185,7 @@ class Connection
             return;
         }
 
-        if ($this->channel) {
-            $this->channel->onDisconnect($this);
-        }
-        $this->server->connections->remove($this);
-        $this->socket->shutdown();
+        $this->destruct($statusCode);
     }
 
     /**
@@ -186,10 +197,9 @@ class Connection
         $this->server->log('[client ' . $this->ip . ':' . $this->port . '] ' . $message, $type);
     }
 
-    public function onDisconnect(): void
+    public function isWaitingForData(): bool
     {
-        $this->log('Disconnected');
-        $this->close(1000);
+        return $this->isWaitingForData;
     }
 
     public function reactToMessage(): void
@@ -197,21 +207,24 @@ class Connection
         try {
             $data = $this->socket->readBuffer();
         } catch (RuntimeException $e) {
-            $this->server->connections->remove($this, false);
+            $this->channel->onDisconnect($this);
+            $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return;
         }
 
-        $bytes = strlen($data);
-        if ($bytes === 0) {
-            $this->onDisconnect();
+        if (strlen($data) === 0) {
+            $this->log('Read buffer is empty');
+            $this->channel->onDisconnect($this);
+            $this->close(/*TODO code???*/);
             return;
         }
 
-        if (!$this->isWaitingForData && !$this->server->connections->checkRequestLimit($this)) {
-            $this->onDisconnect();
-        } else {
-            $this->onData($data);
+        if (!$this->server->connections->checkRequestLimit($this)) {
+            $this->channel->onDisconnect($this);
+            $this->close(self::CLOSE_CODE_REQUEST_LIMIT_EXCEEDED);
         }
+
+        $this->onData($data);
     }
 
     /**
@@ -261,10 +274,11 @@ class Connection
         $action = $message['__lxws_action__'] ?? null;
         if ($action) {
             switch ($action) {
-                case 'connection':
+                case 'connect':
                     if ($this->channelOpenData === false) {
-                        if (!$this->channel->checkAuthData($this, $message['auth'] ?? null)) {
-                            $this->server->connections->remove($this, false);
+                        if (!$this->channel->checkOnConnect($this, $message['auth'] ?? null)) {
+                            $this->log('Conncetion validation failed');
+                            $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                             return;
                         }
 
@@ -275,6 +289,28 @@ class Connection
 
                         $this->channel->onConnect($this);
                     }
+                    break;
+
+                case 'reconnect':
+//                    lx::$app->log('RECONNECTION');
+//                    lx::$app->log($message);
+
+                    if (!$this->channel->checkOnReconnect(
+                        $this,
+                        $message['oldConnectionId'],
+                        $message['auth'] ?? null
+                    )) {
+                        $this->log('Reconncetion validation failed');
+                        $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
+                        return;
+                    }
+
+                    $this->channelOpenData = $message['channelOpenData'] ?? true;
+                    if (!$this->channelOpenData) {
+                        $this->channelOpenData = true;
+                    }
+
+                    $this->channel->onReconnect($this);
                     break;
             }
 
@@ -308,11 +344,15 @@ class Connection
         } else {
             $this->handshake($data);
 
-            $this->send([
+            $response = [
                 'id' => $this->id,
                 'channelData' => $this->channel->getData(),
                 'connections' => $this->channel->getConnectionsData(),
-            ]);
+            ];
+            if ($this->channel->isReconnectionAllowed()) {
+                $response['reconnectionAllowed'] = true;
+            }
+            $this->send($response);
         }
     }
 
@@ -340,9 +380,10 @@ class Connection
         }
 
         if (!isset($decodedData['type'])) {
+            $this->log('Message type is empty');
             $this->sendHttpResponse(401);
-            $this->socket->shutdown();
-            $this->server->connections->remove($this, false);
+            $this->channel->onDisconnect($this);
+            $this->destruct(self::CLOSE_CODE_PROTOCOL_ERROR);
             return false;
         }
 
@@ -351,7 +392,8 @@ class Connection
                 $this->processMessage($decodedData['payload']);
                 break;
             case 'binary':
-                $this->close(1003);
+                $this->channel->onDisconnect($this);
+                $this->close(self::CLOSE_CODE_UNKNOWN_DATA);
                 break;
             case 'ping':
                 $this->send($decodedData['payload'], 'pong', false);
@@ -361,6 +403,7 @@ class Connection
                 // server currently not sending pings, so no pong should be received.
                 break;
             case 'close':
+                $this->channel->onLeave($this);
                 $this->close();
                 $this->log('Disconnected');
                 break;
@@ -394,17 +437,15 @@ class Connection
         if ($this->server->channels->has($channelKey) === false) {
             $this->log('Invalid channel: ' . $path);
             $this->sendHttpResponse(404);
-            $this->socket->shutdown();
-            $this->server->connections->remove($this, false);
+            $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
             return false;
         }
 
-        $this->channel = $this->server->channels->get($channelKey);
-        if ($this->channel->isClosed()) {
+        $channel = $this->server->channels->get($channelKey);
+        if ($channel->isClosed()) {
             $this->log('Channel is closed.');
             $this->sendHttpResponse(403);
-            $this->socket->shutdown();
-            $this->server->connections->remove($this, false);
+            $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
             return false;
         }
 
@@ -421,8 +462,7 @@ class Connection
         if (!isset($headers['Sec-WebSocket-Version']) || $headers['Sec-WebSocket-Version'] < 6) {
             $this->log('Unsupported websocket version.');
             $this->sendHttpResponse(501);
-            $this->socket->shutdown();
-            $this->server->connections->remove($this, false);
+            $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
             return false;
         }
 
@@ -433,16 +473,14 @@ class Connection
             if (empty($origin)) {
                 $this->log('No origin provided.');
                 $this->sendHttpResponse(401);
-                $this->socket->shutdown();
-                $this->server->connections->remove($this, false);
+                $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                 return false;
             }
 
             if (!$this->server->originValidator->validate($origin)) {
                 $this->log('Invalid origin provided.');
                 $this->sendHttpResponse(401);
-                $this->socket->shutdown();
-                $this->server->connections->remove($this, false);
+                $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                 return false;
             }
         }
@@ -464,6 +502,7 @@ class Connection
             return false;
         }
 
+        $this->channel = $channel;
         $this->isHandshakeDone = true;
         $this->log('Handshake sent');
 
@@ -513,7 +552,8 @@ class Connection
             }
             // most significant bit MUST be 0 (close connection if frame too big)
             if ($frameHead[2] > 127) {
-                $this->close(1004);
+                $this->channel->onDisconnect($this);
+                $this->close(self::CLOSE_CODE_LARGE_FRAME);
                 throw new RuntimeException('Invalid payload. Could not encode frame.');
             }
         } elseif ($payloadLength > 125) {
@@ -565,7 +605,8 @@ class Connection
 
         // close connection if unmasked frame is received:
         if ($isMasked === false) {
-            $this->close(1002);
+            $this->channel->onDisconnect($this);
+            $this->close(self::CLOSE_CODE_PROTOCOL_ERROR);
         }
 
         switch ($opcode) {
@@ -590,7 +631,8 @@ class Connection
                 break;
             default:
                 // Close connection on unknown opcode:
-                $this->close(1003);
+                $this->channel->onDisconnect($this);
+                $this->close(self::CLOSE_CODE_UNKNOWN_DATA);
                 break;
         }
 
@@ -636,5 +678,11 @@ class Connection
         }
 
         return $decodedData;
+    }
+
+    private function destruct(int $statusCode): void
+    {
+        $this->server->connections->remove($this);
+        $this->socket->shutdown();
     }
 }

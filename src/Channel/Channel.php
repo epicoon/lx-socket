@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use lx\ObjectTrait;
 use lx\socket\Connection;
 use RuntimeException;
+use lx\Vector;
 
 abstract class Channel implements ChannelInterface
 {
@@ -16,12 +17,18 @@ abstract class Channel implements ChannelInterface
     /** @var string */
     protected $name;
 
-    /** @var array&Connection[] */
+    /** @var int */
+    protected $reconnectionPeriod = 0;
+
+    /** @var array<Connection> */
     protected $connections = [];
+
+    /** @var Vector&iterable<string> */
+    protected $formerConnectionIds;
 
     /** @var ChannelEventListenerInterface */
     protected $eventListener;
-    
+
     /** @var array */
     protected $metaData = [];
 
@@ -31,6 +38,9 @@ abstract class Channel implements ChannelInterface
     /** @var bool */
     protected $isClosed = false;
 
+    /** @var float */
+    protected $timerStart = 0;
+
     public function __construct(array $config = [])
     {
         $this->__objectConstruct($config);
@@ -39,6 +49,7 @@ abstract class Channel implements ChannelInterface
             $this->eventListener->setChannel($this);
         }
 
+        $this->formerConnectionIds = new Vector();
         $this->init();
     }
 
@@ -64,6 +75,27 @@ abstract class Channel implements ChannelInterface
         return $this->eventListener;
     }
 
+    public function timerOn(): void
+    {
+        /** @var lx\socket\SocketServer $app */
+        $app = lx::$app;
+        $app->channels->channelToTimer($this);
+        $this->timerStart = microtime(true);
+    }
+
+    public function timerOff(): void
+    {
+        /** @var lx\socket\SocketServer $app */
+        $app = lx::$app;
+        $app->channels->channelFromTimer($this);
+        $this->timerStart = 0;
+    }
+
+    public function getTimer(): float
+    {
+        return microtime(true) - $this->timerStart;
+    }
+
     /**
      * @return string
      */
@@ -73,18 +105,42 @@ abstract class Channel implements ChannelInterface
     }
 
     /**
+     * @return bool
+     */
+    public function isReconnectionAllowed()
+    {
+        return $this->reconnectionPeriod != 0;
+    }
+
+    /**
      * @param Connection $connection
      * @param mixed $authData
      * @return bool;
      */
-    public function checkAuthData($connection, $authData)
+    public function checkOnConnect($connection, $authData)
     {
         if ($this->requirePassword()) {
-
             return $this->checkPassword($authData);
         }
 
         return true;
+    }
+
+    /**
+     * @param Connection $connection
+     * @param string $oldConnectionId
+     * @param mixed $authData
+     * @return bool;
+     */
+    public function checkOnReconnect($connection, $oldConnectionId, $authData)
+    {
+        if (!$this->formerConnectionIds->contains($oldConnectionId)) {
+            return false;
+        }
+
+        $this->formerConnectionIds->remove($oldConnectionId);
+
+        return $this->checkOnConnect($connection, $authData);
     }
 
     /**
@@ -94,7 +150,7 @@ abstract class Channel implements ChannelInterface
     {
         return $this->isClosed;
     }
-    
+
     public function close()
     {
         if ($this->isClosed) {
@@ -102,18 +158,25 @@ abstract class Channel implements ChannelInterface
         }
 
         foreach ($this->connections as $connection) {
-            $connection->close(1001);
+            $connection->close(Connection::CLOSE_CODE_LEAVE);
         }
 
         $this->isClosed = true;
     }
-    
+
+    public function drop()
+    {
+        /** @var lx\socket\SocketServer $app */
+        $app = lx::$app;
+        $app->channels->close($this->getName());
+    }
+
     public function open()
     {
         if (!$this->isClosed) {
             return;
         }
-        
+
         $this->isClosed = false;
     }
 
@@ -204,10 +267,7 @@ abstract class Channel implements ChannelInterface
     {
         return array_key_exists($id, $this->connections);
     }
-    
-    /**
-     * @param Connection $connection
-     */
+
     public function onConnect(Connection $connection): void
     {
         $id = $connection->getId();
@@ -222,10 +282,44 @@ abstract class Channel implements ChannelInterface
         }
     }
 
-    /**
-     * @param Connection $connection
-     */
+    public function onReconnect(Connection $connection): void
+    {
+        if (!$this->isReconnectionAllowed()) {
+            return;
+        }
+
+        //TODO проверка на возможность переподсоединения?
+
+        $id = $connection->getId();
+        $this->connections[$id] = $connection;
+
+        $clientData = $connection->getChannelOpenData();
+        foreach ($this->connections as $otherConnection) {
+            $otherConnection->send([
+                '__lxws_event__' => 'clientReconnected',
+                'client' => $clientData,
+            ]);
+        }
+    }
+
     public function onDisconnect(Connection $connection): void
+    {
+        $id = $connection->getId();
+        unset($this->connections[$id]);
+        if ($this->isReconnectionAllowed() && !$this->formerConnectionIds->contains($id)) {
+            $this->formerConnectionIds->push($id);
+        }
+
+        $clientData = $connection->getChannelOpenData();
+        foreach ($this->connections as $otherConnection) {
+            $otherConnection->send([
+                '__lxws_event__' => 'clientDisconnected',
+                'client' => $clientData,
+            ]);
+        }
+    }
+
+    public function onLeave(Connection $connection): void
     {
         $id = $connection->getId();
         unset($this->connections[$id]);
@@ -239,18 +333,17 @@ abstract class Channel implements ChannelInterface
         }
     }
 
-    /**
-     * @param ChannelMessage $message
-     */
-    public function onMessage($message): void
+    public function onIteration(): void
+    {
+        // pass
+    }
+
+    public function onMessage(ChannelMessage $message): void
     {
         $this->sendMessage($message);
     }
 
-    /**
-     * @param ChannelMessage $message
-     */
-    public function sendMessage($message)
+    public function sendMessage(ChannelMessage $message)
     {
         $receivers = $message->getReceivers();
         foreach ($receivers as $id => $receiver) {
@@ -258,10 +351,7 @@ abstract class Channel implements ChannelInterface
         }
     }
 
-    /**
-     * @param ChannelEvent $event
-     */
-    public function onEvent($event): void
+    public function onEvent(ChannelEvent $event): void
     {
         if (!isset($this->eventListener)) {
             return;
@@ -274,10 +364,7 @@ abstract class Channel implements ChannelInterface
         $this->sendEvent($event);
     }
 
-    /**
-     * @param ChannelEvent $event
-     */
-    public function sendEvent($event)
+    public function sendEvent(ChannelEvent $event)
     {
         if ($event->isStopped()) {
             return;

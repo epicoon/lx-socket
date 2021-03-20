@@ -190,6 +190,10 @@ class Socket
      */
     public function shutdown() : bool
     {
+        if (!$this->resource) {
+            return false;
+        }
+
         $result = stream_socket_shutdown($this->resource, STREAM_SHUT_RDWR);
         if (!$result) {
             return false;

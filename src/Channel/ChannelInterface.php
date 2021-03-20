@@ -16,39 +16,30 @@ interface ChannelInterface
     public function getName();
 
     /**
+     * @return bool
+     */
+    public function isReconnectionAllowed();
+
+    /**
      * @return ChannelEventListenerInterface
      */
     public function getEventListener();
 
-    /**
-     * @param Connection $connection
-     */
+    public function timerOn(): void;
+    public function timerOff(): void;
+    public function getTimer(): float;
+    
     public function onConnect(Connection $connection): void;
-
-    /**
-     * @param Connection $connection
-     */
+    public function onReconnect(Connection $connection): void;
     public function onDisconnect(Connection $connection): void;
+    public function onLeave(Connection $connection): void;
 
-    /**
-     * @param ChannelMessage $message
-     */
-    public function onMessage($message): void;
+    public function onIteration(): void;
 
-    /**
-     * @param ChannelMessage $message
-     */
-    public function sendMessage($message);
-
-    /**
-     * @param ChannelEvent $event
-     */
-    public function onEvent($event): void;
-
-    /**
-     * @param ChannelEvent $event
-     */
-    public function sendEvent($event);
+    public function onMessage(ChannelMessage $message): void;
+    public function sendMessage(ChannelMessage $message);
+    public function onEvent(ChannelEvent $event): void;
+    public function sendEvent(ChannelEvent $event);
 
     /**
      * @param string $eventName
@@ -72,15 +63,22 @@ interface ChannelInterface
      * @param mixed $authData
      * @return bool;
      */
-    public function checkAuthData($connection, $authData);
+    public function checkOnConnect($connection, $authData);
+
+    /**
+     * @param Connection $connection
+     * @param mixed $authData
+     * @param string $oldConnectionId
+     * @return bool;
+     */
+    public function checkOnReconnect($connection, $oldConnectionId, $authData);
 
     /**
      * @return bool
      */
     public function isClosed();
-
     public function close();
-
+    public function drop();
     public function open();
 
     /**

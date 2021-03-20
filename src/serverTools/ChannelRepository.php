@@ -14,6 +14,9 @@ class ChannelRepository
 {
     /** @var array */
     private $channels = [];
+    
+    /** @var array */
+    private $onTimer = [];
 
     /**
      * @return array
@@ -21,6 +24,28 @@ class ChannelRepository
     public function getChannelNames(): array
     {
         return array_keys($this->channels);
+    }
+
+    /**
+     * @return ChannelInterface[]
+     */
+    public function getOnTimer(): array
+    {
+        return $this->onTimer;
+    }
+    
+    public function channelToTimer(ChannelInterface $channel): void
+    {
+        if (!$this->has($channel->getName())) {
+            return;
+        }
+        
+        $this->onTimer[$channel->getName()] = $channel;
+    }
+    
+    public function channelFromTimer(ChannelInterface $channel): void
+    {
+        unset($this->onTimer[$channel->getName()]);
     }
 
     /**
@@ -85,5 +110,6 @@ class ChannelRepository
 
         $this->get($channelName)->close();
         unset($this->channels[$channelName]);
+        unset($this->onTimer[$channelName]);
     }
 }

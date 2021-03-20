@@ -22,12 +22,15 @@ class WebSocketClient #lx:namespace lx.socket {
 
         this._socket = null;
         this._id = null;
+        this._reconnectionAllowed = false;
         this._channelMates = {};
         this._channelData = {};
         this._beforeSend = null;
-        this._onClientJoin = null;
-        this._onClientLeave = null;
         this._onConnected = null;
+        this._onClientJoin = null;
+        this._onClientDisconnected = null;
+        this._onClientReconnected = null;
+        this._onClientLeave = null;
         this._onEvent = null;
         this._onopen = null;
         this._onmessage = null;
@@ -41,9 +44,11 @@ class WebSocketClient #lx:namespace lx.socket {
         if (config.handlers) {
             var handlers = config.handlers;
             if (handlers.beforeSend) this._beforeSend = handlers.beforeSend;
-            if (handlers.onClientJoin) this._onClientJoin = handlers.onClientJoin;
-            if (handlers.onClientLeave) this._onClientLeave = handlers.onClientLeave;
             if (handlers.onConnected) this._onConnected = handlers.onConnected;
+            if (handlers.onClientJoin) this._onClientJoin = handlers.onClientJoin;
+            if (handlers.onClientDisconnected) this._onClientDisconnected = handlers.onClientDisconnected;
+            if (handlers.onClientReconnected) this._onClientReconnected = handlers.onClientReconnected;
+            if (handlers.onClientLeave) this._onClientLeave = handlers.onClientLeave;
             if (handlers.onChannelEvent) {
                 this._onEvent = handlers.onChannelEvent;
                 if (this._onEvent instanceof lx.socket.EventListener) this._onEvent.setSocket(this);
@@ -140,7 +145,15 @@ class WebSocketClient #lx:namespace lx.socket {
         __setSocketHandlers(this);
     }
 
-    disconnect() {
+    leave() {
+        if (this._reconnectionAllowed && this._channel) {
+            var map = lx.Storage.get('lxsocket') || {};
+            if (map.reconnect && (this._channel in map.reconnect) && map.reconnect[this._channel] == this._id) {
+                delete map.reconnect[this._channel];
+                lx.Storage.set('lxsocket', map);
+            }
+        }
+
         if (!this.isConnected()) return;
 
         this._socket.close();
@@ -194,6 +207,28 @@ class WebSocketClient #lx:namespace lx.socket {
         this._onError = func;
         __setSocketHandlerOnError(this);
     }
+
+    static dropReconnectionsData(list) {
+        var lxSocketData = lx.Storage.get('lxsocket') || {};
+        for (let i in list) {
+            let name = list[i];
+            if (name in lxSocketData.reconnect)
+                delete lxSocketData.reconnect[name];
+        }
+        lx.Storage.set('lxsocket', lxSocketData);
+    }
+
+    static filterReconnectionsData(list) {
+        var lxSocketData = lx.Storage.get('lxsocket') || {},
+            newReconnect = {};
+        for (let i in list) {
+            let name = list[i];
+            if (name in lxSocketData.reconnect)
+                newReconnect[name] = lxSocketData.reconnect[name];
+        }
+        lxSocketData.reconnect = newReconnect;
+        lx.Storage.set('lxsocket', lxSocketData);
+    }
 }
 
 
@@ -227,12 +262,22 @@ function __setSocketHandlerOnMessage(self) {
             }
             self._channelData = msg.channelData.isArray ? {} : msg.channelData;
             if (self._onConnected) self._onConnected(self.getChannelMates(), self.getChannelData());
-            let data = {
-                __lxws_action__: 'connection',
-                channelOpenData: self._channelOpenData || true
-            };
-            if (self._channelAuthData) data.auth = self._channelAuthData;
-            self.sendData(data);
+
+            if (msg.reconnectionAllowed) {
+                self._reconnectionAllowed = true;
+                var channelKey = self._channel,
+                    lxSocketData = lx.Storage.get('lxsocket') || {};
+                if (!lxSocketData.reconnect) lxSocketData.reconnect = {};
+                var oldConnectionId = lxSocketData.reconnect[channelKey] || null;
+                lxSocketData.reconnect[channelKey] = self._id;
+                lx.Storage.set('lxsocket', lxSocketData);
+                if (oldConnectionId) {
+                    __sendReconnectionData(self, oldConnectionId);
+                    return;
+                }
+            }
+
+            __sendConnectionData(self);
             return;
         }
 
@@ -242,6 +287,16 @@ function __setSocketHandlerOnMessage(self) {
                     var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
                     if (self._onClientJoin) self._onClientJoin(mate);
+                    break;
+                case 'clientReconnected':
+                    var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
+                    self._channelMates[msg.client.id] = mate;
+                    if (self._onClientReconnected) self._onClientReconnected(mate);
+                    break;
+                case 'clientDisconnected':
+                    var mate = self._channelMates[msg.client.id];
+                    delete self._channelMates[msg.client.id];
+                    if (self._onClientDisconnected) self._onClientDisconnected(mate);
                     break;
                 case 'clientLeave':
                     var mate = self._channelMates[msg.client.id];
@@ -283,6 +338,9 @@ function __setSocketHandlerOnMessage(self) {
 function __setSocketHandlerOnClose(self) {
     if (self._socket === null) return;
     self._socket.onclose =(e)=>{
+
+        //TODO reconnect
+
         if (self._onclose) self._onclose(e);
         self._socket = null;
     };
@@ -316,4 +374,23 @@ function __processEvent(self, msg) {
         self._onEvent.processEvent(event);
     else if (self._onEvent.isFunction)
         self._onEvent(event);
+}
+
+function __sendConnectionData(self) {
+    let data = {
+        __lxws_action__: 'connect',
+        channelOpenData: self._channelOpenData || true
+    };
+    if (self._channelAuthData) data.auth = self._channelAuthData;
+    self.sendData(data);
+}
+
+function __sendReconnectionData(self, oldId) {
+    let data = {
+        __lxws_action__: 'reconnect',
+        channelOpenData: self._channelOpenData || true,
+        oldConnectionId: oldId
+    };
+    if (self._channelAuthData) data.auth = self._channelAuthData;
+    self.sendData(data);
 }
