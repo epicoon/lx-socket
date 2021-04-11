@@ -22,40 +22,19 @@ class Connection
     const CLOSE_CODE_POLICY_VIOLATION = 1008;
     const CLOSE_CODE_REQUEST_LIMIT_EXCEEDED = 1009;
 
-    /** @var SocketServer */
-    private $server;
-
-    /** @var Socket */
-    private $socket;
-
-    /** @var ChannelInterface $channel */
-    private $channel = null;
-
-    /** @var string $ip */
-    private $ip;
-
+    private SocketServer $server;
+    private Socket $socket;
+    private ?ChannelInterface $channel = null;
+    private string $ip;
     /** @var array|bool */
     private $channelOpenData;
+    private int $port;
+    private string $id = '';
+    private string $dataBuffer = '';
+    private bool $isHandshakeDone = false;
+    private bool $isWaitingForData = false;
+    private bool $isReadyForClose = false;
 
-    /** @var int $port */
-    private $port;
-
-    /** @var string $id */
-    private $id = '';
-
-    /** @var string $dataBuffer */
-    private $dataBuffer = '';
-
-    /** @var bool */
-    private $isHandshakeDone = false;
-
-    /** @var bool */
-    private $isWaitingForData = false;
-
-    /**
-     * @param SocketServer $server
-     * @param Socket $socket
-     */
     public function __construct(SocketServer $server, Socket $socket)
     {
         $this->server = $server;
@@ -73,9 +52,6 @@ class Connection
         $this->log('Connected');
     }
 
-    /**
-     * @return array
-     */
     public function getChannelOpenData(): array
     {
         $result = (is_bool($this->channelOpenData)) ? [] : $this->channelOpenData;
@@ -83,41 +59,26 @@ class Connection
         return $result;
     }
 
-    /**
-     * @return string
-     */
     public function getClientIp(): string
     {
         return $this->ip;
     }
 
-    /**
-     * @return int
-     */
     public function getClientPort(): int
     {
         return $this->port;
     }
 
-    /**
-     * @return string
-     */
     public function getId(): string
     {
         return $this->id;
     }
 
-    /**
-     * @return Socket
-     */
-    public function getClientSocket()
+    public function getClientSocket(): Socket
     {
         return $this->socket;
     }
 
-    /**
-     * @return ChannelInterface|null
-     */
     public function getClientChannel(): ?ChannelInterface
     {
         return $this->channel;
@@ -136,7 +97,7 @@ class Connection
             $encodedData = $this->hybi10Encode($payload, $type, $masked);
             $this->socket->writeBuffer($encodedData);
         } catch (RuntimeException $e) {
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return false;
         }
@@ -207,20 +168,20 @@ class Connection
         try {
             $data = $this->socket->readBuffer();
         } catch (RuntimeException $e) {
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return;
         }
 
         if (strlen($data) === 0) {
             $this->log('Read buffer is empty');
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->close(/*TODO code???*/);
             return;
         }
 
         if (!$this->server->connections->checkRequestLimit($this)) {
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->close(self::CLOSE_CODE_REQUEST_LIMIT_EXCEEDED);
         }
 
@@ -312,6 +273,19 @@ class Connection
 
                     $this->channel->onReconnect($this);
                     break;
+
+                case 'close':
+                    $this->isReadyForClose = true;
+                    $this->send([
+                        '__lxws_event__' => 'close',
+                    ]);
+                    break;
+
+                case 'break':
+                    $this->send([
+                        '__lxws_event__' => 'break',
+                    ]);
+                    break;
             }
 
             return;
@@ -342,17 +316,17 @@ class Connection
         if ($this->isHandshakeDone) {
             $this->handle($data);
         } else {
-            $this->handshake($data);
-
-            $response = [
-                'id' => $this->id,
-                'channelData' => $this->channel->getData(),
-                'connections' => $this->channel->getConnectionsData(),
-            ];
-            if ($this->channel->isReconnectionAllowed()) {
-                $response['reconnectionAllowed'] = true;
+            if ($this->handshake($data)) {
+                $response = [
+                    'id' => $this->id,
+                    'channelData' => $this->channel->getData(),
+                    'connections' => $this->channel->getConnectionsData(),
+                ];
+                if ($this->channel->isReconnectionAllowed()) {
+                    $response['reconnectionAllowed'] = true;
+                }
+                $this->send($response);
             }
-            $this->send($response);
         }
     }
 
@@ -382,7 +356,7 @@ class Connection
         if (!isset($decodedData['type'])) {
             $this->log('Message type is empty');
             $this->sendHttpResponse(401);
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->destruct(self::CLOSE_CODE_PROTOCOL_ERROR);
             return false;
         }
@@ -392,7 +366,7 @@ class Connection
                 $this->processMessage($decodedData['payload']);
                 break;
             case 'binary':
-                $this->channel->onDisconnect($this);
+                $this->channelOnDisconnect();
                 $this->close(self::CLOSE_CODE_UNKNOWN_DATA);
                 break;
             case 'ping':
@@ -403,7 +377,11 @@ class Connection
                 // server currently not sending pings, so no pong should be received.
                 break;
             case 'close':
-                $this->channel->onLeave($this);
+                if ($this->isReadyForClose) {
+                    $this->channelOnLeave();
+                } else {
+                    $this->channelOnDisconnect();
+                }
                 $this->close();
                 $this->log('Disconnected');
                 break;
@@ -552,7 +530,7 @@ class Connection
             }
             // most significant bit MUST be 0 (close connection if frame too big)
             if ($frameHead[2] > 127) {
-                $this->channel->onDisconnect($this);
+                $this->channelOnDisconnect();
                 $this->close(self::CLOSE_CODE_LARGE_FRAME);
                 throw new RuntimeException('Invalid payload. Could not encode frame.');
             }
@@ -605,7 +583,7 @@ class Connection
 
         // close connection if unmasked frame is received:
         if ($isMasked === false) {
-            $this->channel->onDisconnect($this);
+            $this->channelOnDisconnect();
             $this->close(self::CLOSE_CODE_PROTOCOL_ERROR);
         }
 
@@ -631,7 +609,7 @@ class Connection
                 break;
             default:
                 // Close connection on unknown opcode:
-                $this->channel->onDisconnect($this);
+                $this->channelOnDisconnect();
                 $this->close(self::CLOSE_CODE_UNKNOWN_DATA);
                 break;
         }
@@ -684,5 +662,20 @@ class Connection
     {
         $this->server->connections->remove($this);
         $this->socket->shutdown();
+        $this->isReadyForClose = false;
+    }
+
+    private function channelOnDisconnect(): void
+    {
+        if ($this->channel) {
+            $this->channel->onDisconnect($this);
+        }
+    }
+
+    private function channelOnLeave(): void
+    {
+        if ($this->channel) {
+            $this->channel->onLeave($this);
+        }
     }
 }

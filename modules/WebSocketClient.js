@@ -8,6 +8,14 @@
 #lx:require Event;
 
 class WebSocketClient #lx:namespace lx.socket {
+    #lx:const
+        STATUS_NEW = 1,
+        STATUS_IN_CONNECTING = 2,
+        STATUS_CONNECTED = 3,
+        STATUS_CLOSED = 4,
+        STATUS_DISCONNECTED = 5,
+        STATUS_WAITING_FOR_RECONNECTING = 6;
+
     /**
      * @param {Object} config [[protocol, port, url, channel, handlers]]
      */
@@ -21,6 +29,8 @@ class WebSocketClient #lx:namespace lx.socket {
         this._channelAuthData = null;
 
         this._socket = null;
+        this._status = self::STATUS_NEW;
+        this._isReadyForClose = false;
         this._id = null;
         this._reconnectionAllowed = false;
         this._channelMates = {};
@@ -107,7 +117,7 @@ class WebSocketClient #lx:namespace lx.socket {
     }
 
     isConnected() {
-        return this._socket !== null;
+        return this._status === self::STATUS_CONNECTED;
     }
 
     hasErrors() {
@@ -141,11 +151,18 @@ class WebSocketClient #lx:namespace lx.socket {
         if (window.MozWebSocket) this._socket = new MozWebSocket(url);
         else if (window.WebSocket) this._socket = new WebSocket(url);
         this._socket.binaryType = 'blob';
+        this._status = self::STATUS_IN_CONNECTING;
 
         __setSocketHandlers(this);
     }
 
-    leave() {
+    reconnect() {
+        if (this._status !== self::STATUS_CLOSED && this._status !== self::STATUS_DISCONNECTED) return;
+        delete this._channelOpenData.id;
+        this.connect(this._channelOpenData, this._channelAuthData);
+    }
+
+    close() {
         if (this._reconnectionAllowed && this._channel) {
             var map = lx.Storage.get('lxsocket') || {};
             if (map.reconnect && (this._channel in map.reconnect) && map.reconnect[this._channel] == this._id) {
@@ -155,8 +172,12 @@ class WebSocketClient #lx:namespace lx.socket {
         }
 
         if (!this.isConnected()) return;
+        this.sendData({__lxws_action__:'close'});
+    }
 
-        this._socket.close();
+    break() {
+        if (!this.isConnected()) return;
+        this.sendData({__lxws_action__:'break'});
     }
 
     send(data, receivers = null, privateMode = false) {
@@ -244,8 +265,11 @@ function __setSocketHandlers(self) {
 }
 
 function __setSocketHandlerOnOpen(self) {
-    if (self._onopen === null || self._socket === null) return;
-    self._socket.onopen = self._onopen;
+    if (self._socket === null) return;
+    self._socket.onopen = function() {
+        self._status = lx.socket.WebSocketClient.STATUS_CONNECTED;
+        if (self._onopen) self._onopen();
+    }
 }
 
 function __setSocketHandlerOnMessage(self) {
@@ -265,6 +289,9 @@ function __setSocketHandlerOnMessage(self) {
 
             if (msg.reconnectionAllowed) {
                 self._reconnectionAllowed = true;
+                self._reconnectionStep = 0;
+                self._reconnectionNextStep = 1;
+
                 var channelKey = self._channel,
                     lxSocketData = lx.Storage.get('lxsocket') || {};
                 if (!lxSocketData.reconnect) lxSocketData.reconnect = {};
@@ -303,6 +330,13 @@ function __setSocketHandlerOnMessage(self) {
                     delete self._channelMates[msg.client.id];
                     if (self._onClientLeave) self._onClientLeave(mate);
                     break;
+                case 'close':
+                    self._isReadyForClose = true;
+                    self._socket.close();
+                    break;
+                case 'break':
+                    self._socket.close();
+                    break;
             }
             return;
         }
@@ -338,11 +372,17 @@ function __setSocketHandlerOnMessage(self) {
 function __setSocketHandlerOnClose(self) {
     if (self._socket === null) return;
     self._socket.onclose =(e)=>{
-
-        //TODO reconnect
-
         if (self._onclose) self._onclose(e);
         self._socket = null;
+        self._id = null;
+
+        if (self._isReadyForClose) {
+            self._status = lx.socket.WebSocketClient.STATUS_CLOSED;
+            self._isReadyForClose = false;
+        } else {
+            self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
+            __afterDisconnect(self);
+        }
     };
 }
 
@@ -352,7 +392,32 @@ function __setSocketHandlerOnError(self) {
         self._errors.push(e);
         if (self._onError) self._onError(e);
         self._socket = null;
+        self._id = null;
+        self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
+        __afterDisconnect(self);
     };
+}
+
+function __afterDisconnect(self) {
+    if (!self._reconnectionAllowed) return;
+
+    var duration = self._reconnectionStep,
+        next = self._reconnectionStep + self._reconnectionNextStep;
+    self._reconnectionStep = self._reconnectionNextStep;
+    self._reconnectionNextStep = next;
+
+    if (duration) {
+        self._status = lx.socket.WebSocketClient.STATUS_WAITING_FOR_RECONNECTING;
+        var timer = new lx.Timer(duration * 500);
+        timer.onCycleEnds(()=>{
+            self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
+            self.reconnect();
+            timer.stop();
+            delete self.timer;
+        });
+        timer.start();
+        self.timer = timer;
+    } else self.reconnect();
 }
 
 function __prepareMessageForSend(data, receivers, privateMode) {
