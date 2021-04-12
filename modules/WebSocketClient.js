@@ -318,7 +318,7 @@ function __setSocketHandlerOnMessage(self) {
                 case 'clientReconnected':
                     var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
-                    if (self._onClientReconnected) self._onClientReconnected(mate);
+                    if (self._onClientReconnected) self._onClientReconnected(mate, msg.oldConnectionId);
                     break;
                 case 'clientDisconnected':
                     var mate = self._channelMates[msg.client.id];

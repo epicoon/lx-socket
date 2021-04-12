@@ -298,6 +298,7 @@ abstract class Channel implements ChannelInterface
             $otherConnection->send([
                 '__lxws_event__' => 'clientReconnected',
                 'client' => $clientData,
+                'oldConnectionId' => $connection->getOldId(),
             ]);
         }
     }
