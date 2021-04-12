@@ -30,6 +30,7 @@ class Connection
     private $channelOpenData;
     private int $port;
     private string $id = '';
+    private ?string $oldId = null;
     private string $dataBuffer = '';
     private bool $isHandshakeDone = false;
     private bool $isWaitingForData = false;
@@ -72,6 +73,16 @@ class Connection
     public function getId(): string
     {
         return $this->id;
+    }
+
+    public function getOldId(): ?string
+    {
+        return $this->oldId;
+    }
+
+    public function isReconnected(): bool
+    {
+        return $this->oldId !== null;
     }
 
     public function getClientSocket(): Socket
@@ -266,6 +277,7 @@ class Connection
                         return;
                     }
 
+                    $this->oldId = $message['oldConnectionId'];
                     $this->channelOpenData = $message['channelOpenData'] ?? true;
                     if (!$this->channelOpenData) {
                         $this->channelOpenData = true;
