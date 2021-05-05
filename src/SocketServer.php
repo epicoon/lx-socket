@@ -20,23 +20,12 @@ use RuntimeException;
  */
 class SocketServer extends ProcessApplication
 {
-    /** @var Socket */
-    private $masterSocket;
-
-    /** @var array */
-    private $allSocketResources = [];
-
-    /** @var ChannelRepository */
-    private $_channelRepo;
-
-    /** @var ConnectionRepository */
-    private $_connectionRepo;
-
-    /** @var OriginValidator */
-    private $_originValidator;
-
-    /** @var string */
-    private $sessionSecret;
+    private SocketKeeper $masterSocket;
+    private array $allSocketResources = [];
+    private ChannelRepository $_channelRepo;
+    private ConnectionRepository $_connectionRepo;
+    private OriginValidator $_originValidator;
+    private string $sessionSecret;
 
     /**
      * SocketServer constructor.
@@ -49,7 +38,7 @@ class SocketServer extends ProcessApplication
      *  - maxConnectionsPerIp
      *  - maxRequestsPerMinute
      */
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         parent::__construct($config);
 
@@ -76,7 +65,7 @@ class SocketServer extends ProcessApplication
      * @param string $name
      * @return mixed
      */
-    public function __get($name)
+    public function __get(string $name)
     {
         switch ($name) {
             case 'channels': return $this->_channelRepo;
@@ -87,26 +76,17 @@ class SocketServer extends ProcessApplication
         return parent::__get($name);
     }
 
-    /**
-     * @return string
-     */
-    public function getSecret()
+    public function getSecret(): string
     {
         return $this->sessionSecret;
     }
 
-    /**
-     * @return Socket
-     */
-    public function getMasterSocket(): Socket
+    public function getMasterSocket(): SocketKeeper
     {
         return $this->masterSocket;
     }
 
-    /**
-     * @return array
-     */
-    public function getClientConnections()
+    public function getClientConnections(): array
     {
         $resources = $this->getClientSocketResources();
         $result = [];
@@ -117,9 +97,6 @@ class SocketServer extends ProcessApplication
         return $result;        
     }
 
-    /**
-     * @return array
-     */
     public function getClientSocketResources(): array
     {
         $result = [];
@@ -131,10 +108,7 @@ class SocketServer extends ProcessApplication
         return $result;
     }
 
-    /**
-     * @param Socket $socket
-     */
-    public function removeSocket(Socket $socket) : void
+    public function removeSocket(SocketKeeper $socket): void
     {
         $index = array_search($socket->getResource(), $this->allSocketResources);
         if ($index !== false) {
@@ -142,7 +116,7 @@ class SocketServer extends ProcessApplication
         }
     }
 
-    final protected function process()
+    final protected function process(): void
     {
         try {
             $this->iteration();
@@ -156,7 +130,7 @@ class SocketServer extends ProcessApplication
      * PRIVATE
      ******************************************************************************************************************/
 
-    private function iteration()
+    private function iteration(): void
     {
         $changedSocketResources = $this->allSocketResources;
         @stream_select(
@@ -187,13 +161,11 @@ class SocketServer extends ProcessApplication
     }
 
     /**
-     * @param string $host
-     * @param int $port
      * @throws RuntimeException
      */
-    private function createMasterSocket(string $host, int $port) : void
+    private function createMasterSocket(string $host, int $port): void
     {
-        $socket = Socket::createMasterSocket($host, $port);
+        $socket = SocketKeeper::createMasterSocket($host, $port);
         if ($socket->hasError()) {
             throw new RuntimeException('Error creating socket: ' . $socket->getErrorString());
         }
@@ -202,9 +174,9 @@ class SocketServer extends ProcessApplication
         $this->allSocketResources[] = $socket->getResource();
     }
 
-    private function onChangeMasterSocket() : void
+    private function onChangeMasterSocket(): void
     {
-        $socket = Socket::createClientSocket($this->masterSocket);
+        $socket = SocketKeeper::createClientSocket($this->masterSocket);
         if ($socket->hasError()) {
             $this->log('Socket error: ' . $socket->getErrorString(), 'error');
             return;

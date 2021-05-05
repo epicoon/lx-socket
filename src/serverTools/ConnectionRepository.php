@@ -4,7 +4,7 @@ namespace lx\socket\serverTools;
 
 use lx\socket\Connection;
 use lx\socket\Constants;
-use lx\socket\Socket;
+use lx\socket\SocketKeeper;
 use lx\socket\SocketServer;
 
 /**
@@ -57,10 +57,10 @@ class ConnectionRepository
     }
 
     /**
-     * @param Socket $socket
+     * @param SocketKeeper $socket
      * @return Connection|null
      */
-    public function create(Socket $socket) : ?Connection
+    public function create(SocketKeeper $socket) : ?Connection
     {
         if (count($this->connections) >= $this->maxConnections) {
             return null;
@@ -82,7 +82,7 @@ class ConnectionRepository
      */
     public function has($resource) : bool
     {
-        return array_key_exists(Socket::getResourceId($resource), $this->connections);
+        return array_key_exists(SocketKeeper::getResourceId($resource), $this->connections);
     }
 
     /**
@@ -92,9 +92,9 @@ class ConnectionRepository
     public function get($resource) : ?Connection
     {
         if ($this->has($resource)) {
-            $connection = $this->connections[Socket::getResourceId($resource)];
+            $connection = $this->connections[SocketKeeper::getResourceId($resource)];
             if (!is_object($connection)) {
-                unset($this->connections[Socket::getResourceId($resource)]);
+                unset($this->connections[SocketKeeper::getResourceId($resource)]);
                 return null;
             }
 
@@ -166,10 +166,10 @@ class ConnectionRepository
      ******************************************************************************************************************/
 
     /**
-     * @param Socket $socket
+     * @param SocketKeeper $socket
      * @return Connection
      */
-    private function createConnection(Socket $socket) : Connection
+    private function createConnection(SocketKeeper $socket) : Connection
     {
         return new Connection($this->server, $socket);
     }

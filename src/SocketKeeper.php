@@ -5,26 +5,17 @@ namespace lx\socket;
 use RuntimeException;
 
 /**
- * Class Socket
+ * Class SocketKeeper
  * @package lx\socket
  */
-class Socket
+class SocketKeeper
 {
     /** @var resource */
     private $resource;
+    private int $errorCode = 0;
+    private string $errorString = '';
 
-    /** @var int */
-    private $errorCode = 0;
-
-    /** @var string */
-    private $errorString = '';
-
-    /**
-     * @param string $host
-     * @param int $port
-     * @return Socket
-     */
-    public static function createMasterSocket(string $host, int $port) : Socket
+    public static function createMasterSocket(string $host, int $port): SocketKeeper
     {
         $protocol = 'tcp://';
         $url = $protocol . $host . ':' . $port;
@@ -44,11 +35,7 @@ class Socket
         return $socket;
     }
 
-    /**
-     * @param Socket $masterSocket
-     * @return Socket
-     */
-    public static function createClientSocket(Socket $masterSocket) : Socket
+    public static function createClientSocket(SocketKeeper $masterSocket): SocketKeeper
     {
         $resource = stream_socket_accept($masterSocket->getResource());
         $socket = new self($resource);
@@ -70,23 +57,17 @@ class Socket
      * @param resource $resource
      * @return int
      */
-    public static function getResourceId($resource) : int
+    public static function getResourceId($resource): int
     {
         return (int)$resource;
     }
 
-    /**
-     * @return int
-     */
-    public function getId() : int
+    public function getId(): int
     {
         return self::getResourceId($this->resource);
     }
 
-    /**
-     * @return string
-     */
-    public function getName() : string
+    public function getName(): string
     {
         return stream_socket_get_name($this->resource, true);
     }
@@ -103,38 +84,28 @@ class Socket
      * @param resource $resource
      * @return bool
      */
-    public function matchResource($resource) : bool
+    public function matchResource($resource): bool
     {
         return $this->resource == $resource;
     }
 
-    /**
-     * @return bool
-     */
-    public function hasError() : bool
+    public function hasError(): bool
     {
         return $this->errorCode != 0 || $this->errorString != '';
     }
 
-    /**
-     * @return int
-     */
-    public function getErrorCode() : int
+    public function getErrorCode(): int
     {
         return $this->errorCode;
     }
 
-    /**
-     * @return string
-     */
-    public function getErrorString() : string
+    public function getErrorString(): string
     {
         return $this->errorString;
     }
 
     /**
      * @throws RuntimeException
-     * @return string
      */
     public function readBuffer(): string
     {
@@ -157,10 +128,6 @@ class Socket
         return $buffer;
     }
 
-    /**
-     * @param string $string
-     * @return int
-     */
     public function writeBuffer(string $string): int
     {
         if (!isset($this->resource) || !$this->resource) {
@@ -185,10 +152,7 @@ class Socket
         return $written;
     }
 
-    /**
-     * @return bool
-     */
-    public function shutdown() : bool
+    public function shutdown(): bool
     {
         if (!$this->resource) {
             return false;
@@ -204,7 +168,7 @@ class Socket
     }
 
     /**
-     * Socket constructor.
+     * SocketKeeper constructor.
      * @param resource $resource
      */
     private function __construct($resource = null)
@@ -212,11 +176,7 @@ class Socket
         $this->resource = $resource;
     }
 
-    /**
-     * @param int $errNo
-     * @param string $errString
-     */
-    private function setError(int $errNo, string $errString)
+    private function setError(int $errNo, string $errString): void
     {
         $this->errorCode = $errNo;
         $this->errorString = $errString;

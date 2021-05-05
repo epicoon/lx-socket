@@ -23,7 +23,7 @@ class Connection
     const CLOSE_CODE_REQUEST_LIMIT_EXCEEDED = 1009;
 
     private SocketServer $server;
-    private Socket $socket;
+    private SocketKeeper $socket;
     private ?ChannelInterface $channel = null;
     private string $ip;
     /** @var array|bool */
@@ -36,7 +36,7 @@ class Connection
     private bool $isWaitingForData = false;
     private bool $isReadyForClose = false;
 
-    public function __construct(SocketServer $server, Socket $socket)
+    public function __construct(SocketServer $server, SocketKeeper $socket)
     {
         $this->server = $server;
         $this->socket = $socket;
@@ -85,7 +85,7 @@ class Connection
         return $this->oldId !== null;
     }
 
-    public function getClientSocket(): Socket
+    public function getClientSocket(): SocketKeeper
     {
         return $this->socket;
     }

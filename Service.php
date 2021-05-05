@@ -2,6 +2,7 @@
 
 namespace lx\socket;
 
-class Service extends \lx\Service {
+class Service extends \lx\Service
+{
 
 }
