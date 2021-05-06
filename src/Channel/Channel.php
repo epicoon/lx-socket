@@ -14,32 +14,17 @@ abstract class Channel implements ChannelInterface
 {
     use ObjectTrait;
 
-    /** @var string */
-    protected $name;
-
-    /** @var int */
-    protected $reconnectionPeriod = 0;
-
+    protected string $name;
+    protected int $reconnectionPeriod = 0;
     /** @var array<Connection> */
-    protected $connections = [];
-
+    protected array $connections = [];
     /** @var Vector&iterable<string> */
-    protected $formerConnectionIds;
-
-    /** @var ChannelEventListenerInterface */
-    protected $eventListener;
-
-    /** @var array */
-    protected $metaData = [];
-
-    /** @var null|string */
-    protected $password = null;
-
-    /** @var bool */
-    protected $isClosed = false;
-
-    /** @var float */
-    protected $timerStart = 0;
+    protected Vector $formerConnectionIds;
+    protected ?ChannelEventListenerInterface $eventListener = null;
+    protected array $metaData = [];
+    protected ?string $password = null;
+    protected bool $isClosed = false;
+    protected float $timerStart = 0;
 
     public function __construct(array $config = [])
     {
@@ -53,7 +38,7 @@ abstract class Channel implements ChannelInterface
         $this->init();
     }
 
-    public function init()
+    public function init(): void
     {
         // pass
     }
@@ -67,10 +52,7 @@ abstract class Channel implements ChannelInterface
         ];
     }
 
-    /**
-     * @return ChannelEventListenerInterface
-     */
-    public function getEventListener()
+    public function getEventListener(): ?ChannelEventListenerInterface
     {
         return $this->eventListener;
     }
@@ -96,43 +78,26 @@ abstract class Channel implements ChannelInterface
         return microtime(true) - $this->timerStart;
     }
 
-    /**
-     * @return string
-     */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * @return bool
-     */
-    public function isReconnectionAllowed()
+    public function isReconnectionAllowed(): bool
     {
         return $this->reconnectionPeriod != 0;
     }
 
-    /**
-     * @param Connection $connection
-     * @param mixed $authData
-     * @return bool;
-     */
-    public function checkOnConnect($connection, $authData)
+    public function checkOnConnect(Connection $connection, array $authData): bool
     {
         if ($this->requirePassword()) {
-            return $this->checkPassword($authData);
+            return $this->checkPassword($authData['password'] ?? null);
         }
 
         return true;
     }
 
-    /**
-     * @param Connection $connection
-     * @param string $oldConnectionId
-     * @param mixed $authData
-     * @return bool;
-     */
-    public function checkOnReconnect($connection, $oldConnectionId, $authData)
+    public function checkOnReconnect(Connection $connection, string $oldConnectionId, array $authData): bool
     {
         if (!$this->formerConnectionIds->contains($oldConnectionId)) {
             return false;
@@ -143,15 +108,12 @@ abstract class Channel implements ChannelInterface
         return $this->checkOnConnect($connection, $authData);
     }
 
-    /**
-     * @return bool
-     */
-    public function isClosed()
+    public function isClosed(): bool
     {
         return $this->isClosed;
     }
 
-    public function close()
+    public function close(): void
     {
         if ($this->isClosed) {
             return;
@@ -164,14 +126,14 @@ abstract class Channel implements ChannelInterface
         $this->isClosed = true;
     }
 
-    public function drop()
+    public function drop(): void
     {
         /** @var lx\socket\SocketServer $app */
         $app = lx::$app;
         $app->channels->close($this->getName());
     }
 
-    public function open()
+    public function open(): void
     {
         if (!$this->isClosed) {
             return;
@@ -180,53 +142,34 @@ abstract class Channel implements ChannelInterface
         $this->isClosed = false;
     }
 
-    /**
-     * @param string $password
-     */
-    public function setPassword($password)
+    public function setPassword(string $password): void
     {
         $this->password = $password;
     }
 
-    /**
-     * @return bool
-     */
-    public function requirePassword()
+    public function requirePassword(): bool
     {
         return ($this->password !== null);
     }
 
-    /**
-     * @param string $password
-     * @return bool
-     */
-    public function checkPassword($password)
+    public function checkPassword(string $password): bool
     {
         return $this->password == $password;
     }
 
-    /**
-     * @return array
-     */
-    public function getMetaData()
+    public function getMetaData(): array
     {
         $metaData = $this->metaData;
         $metaData['requirePassword'] = $this->requirePassword();
         return $metaData;
     }
 
-    /**
-     * @return array
-     */
-    public function getData()
+    public function getData(): array
     {
         return [];
     }
 
-    /**
-     * @return array
-     */
-    public function getConnectionsData()
+    public function getConnectionsData(): array
     {
         $result = [];
         foreach ($this->connections as $connection) {
@@ -235,35 +178,22 @@ abstract class Channel implements ChannelInterface
         return $result;
     }
 
-    /**
-     * @return array
-     */
-    public function getConnections()
+    public function getConnections(): array
     {
         return $this->connections;
     }
 
-    /**
-     * @return array
-     */
-    public function getConnectionIds()
+    public function getConnectionIds(): array
     {
         return array_keys($this->connections);
     }
 
-    /**
-     * @return int
-     */
-    public function getConnectionsCount()
+    public function getConnectionsCount(): int
     {
         return count($this->connections);
     }
 
-    /**
-     * @param string $id
-     * @return bool
-     */
-    public function hasConnection($id)
+    public function hasConnection(string $id): bool
     {
         return array_key_exists($id, $this->connections);
     }
@@ -344,7 +274,7 @@ abstract class Channel implements ChannelInterface
         $this->sendMessage($message);
     }
 
-    public function sendMessage(ChannelMessage $message)
+    public function sendMessage(ChannelMessage $message): void
     {
         $receivers = $message->getReceivers();
         foreach ($receivers as $id => $receiver) {
@@ -354,18 +284,18 @@ abstract class Channel implements ChannelInterface
 
     public function onEvent(ChannelEvent $event): void
     {
-        if (!isset($this->eventListener)) {
+        if ($this->eventListener === null) {
             return;
         }
 
-        if ($this->eventListener->processEvent($event) === false) {
+        if ($this->eventListener->processAnyEvent($event) === false) {
             return;
         }
 
         $this->sendEvent($event);
     }
 
-    public function sendEvent(ChannelEvent $event)
+    public function sendEvent(ChannelEvent $event): void
     {
         if ($event->isStopped()) {
             return;
@@ -381,30 +311,20 @@ abstract class Channel implements ChannelInterface
         }
     }
 
-    /**
-     * @param string $eventName
-     * @param array|null $eventData
-     */
-    public function createEvent($eventName, $eventData = [])
+    public function createEvent(string $eventName, array $eventData = []): ChannelEvent
     {
         return new ChannelEvent($eventName, $eventData, $this);
     }
 
-    /**
-     * @param string $eventName
-     * @param array $eventData
-     */
-    public function trigger($eventName, $eventData = [])
+    public function trigger(string $eventName, array $eventData = []): void
     {
         $event = $this->createEvent($eventName, $eventData);
         $this->sendEvent($event);
     }
 
-    /**
-     * @param ChannelQuestion $question
-     */
-    public function onQuestion($question)
+    public function onRequest(ChannelRequest $request): void
     {
-        $this->sendMessage($question);
+        //TODO пропустить через ChannelController, отдавать ChannelResponse
+        $this->sendMessage($request);
     }
 }

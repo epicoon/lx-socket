@@ -6,28 +6,18 @@ use lx\socket\Channel\ChannelInterface;
 use lx\StringHelper;
 use RuntimeException;
 
-/**
- * Class ChannelRepository
- * @package lx\socket
- */
 class ChannelRepository
 {
-    /** @var array */
-    private $channels = [];
-    
-    /** @var array */
-    private $onTimer = [];
+    private array $channels = [];
+    private array $onTimer = [];
 
-    /**
-     * @return array
-     */
     public function getChannelNames(): array
     {
         return array_keys($this->channels);
     }
 
     /**
-     * @return ChannelInterface[]
+     * @return array<ChannelInterface>
      */
     public function getOnTimer(): array
     {
@@ -48,10 +38,6 @@ class ChannelRepository
         unset($this->onTimer[$channel->getName()]);
     }
 
-    /**
-     * @param string $key
-     * @return bool
-     */
     public function has(string $key): bool
     {
         if (empty($key)) {
@@ -61,10 +47,6 @@ class ChannelRepository
         return array_key_exists($key, $this->channels);
     }
 
-    /**
-     * @param string $key
-     * @return ChannelInterface
-     */
     public function get(string $key): ChannelInterface
     {
         if ($this->has($key) === false) {
@@ -74,12 +56,6 @@ class ChannelRepository
         return $this->channels[$key];
     }
 
-    /**
-     * @param string $channelName
-     * @param string $channelClassName
-     * @param array $config
-     * @return ChannelInterface|null
-     */
     public function create(string $channelName, string $channelClassName, array $config = []) : ?ChannelInterface
     {
         if ($this->has($channelName)) {
@@ -99,9 +75,6 @@ class ChannelRepository
         return $channel;
     }
 
-    /**
-     * @param string $channelName
-     */
     public function close(string $channelName)
     {
         if (!$this->has($channelName)) {

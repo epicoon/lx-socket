@@ -2,10 +2,6 @@
 
 namespace lx\socket;
 
-/**
- * Class Constants
- * @package lx\socket
- */
 class Constants
 {
     const DEFAULT_MASTER_PORT = 8000;

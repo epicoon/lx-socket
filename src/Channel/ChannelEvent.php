@@ -5,29 +5,13 @@ namespace lx\socket\Channel;
 use lx;
 use lx\socket\Connection;
 
-/**
- * Class ChannelEvent
- * @package lx\socket\Channel
- */
 class ChannelEvent extends ChannelMessage
 {
-    /** @var string */
-    protected $name;
+    protected string $name;
+    protected bool $isStopped;
+    protected array $subEvents;
 
-    /** @var bool */
-    protected $isStopped;
-
-    /** @var array */
-    protected $subEvents;
-
-    /**
-     * ChannelEvent constructor.
-     * @param string $name
-     * @param array $data
-     * @param Channel $channel
-     * @param Connection|null $initiator
-     */
-    public function __construct($name, $data, $channel, $initiator = null)
+    public function __construct(string $name, array $data, Channel $channel, ?Connection $initiator = null)
     {
         parent::__construct($data, $channel, $initiator);
 
@@ -38,32 +22,19 @@ class ChannelEvent extends ChannelMessage
         $this->isAsync = true;
     }
     
-    /**
-     * @return string
-     */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * @param string $eventName
-     * @param mixed $eventData
-     * @return ChannelEvent
-     */
-    public function replaceEvent($eventName, $eventData = [])
+    public function replaceEvent(string $eventName, array $eventData = []): ChannelEvent
     {
         $this->name = $eventName;
         $this->data = $eventData;
         return $this;
     }
 
-    /**
-     * @param string $eventName
-     * @param mixed $eventData
-     * @return ChannelEvent
-     */
-    public function addSubEvent($eventName, $eventData = [])
+    public function addSubEvent(string $eventName, array $eventData = []): ChannelEvent
     {
         $event = new self($eventName, $eventData, $this->getChannel(), $this->getInitiator());
         $event->receivers = $this->receivers;
@@ -72,56 +43,40 @@ class ChannelEvent extends ChannelMessage
         return $event;
     }
 
-    /**
-     * @param bool $value
-     */
-    public function setAsync($value)
+    public function setAsync($value): void
     {
         $this->isAsync = $value;
     }
 
     /**
-     * @return ChannelEvent[]
+     * @return array<ChannelEvent>
      */
-    public function getSubEvents()
+    public function getSubEvents(): array
     {
         return $this->subEvents;
     }
 
-    public function stop()
+    public function stop(): void
     {
         $this->isStopped = true;
     }
 
-    /**
-     * @return bool
-     */
-    public function isStopped()
+    public function isStopped(): bool
     {
         return $this->isStopped;
     }
 
-    /**
-     * @return bool
-     */
-    public function isMultiple()
+    public function isMultiple(): bool
     {
         return !empty($this->subEvents);
     }
 
-    /**
-     * @return bool
-     */
-    public function isAsync()
+    public function isAsync(): bool
     {
         return $this->isAsync;
     }
 
-    /**
-     * @param string $connectionId
-     * @return array
-     */
-    public function getDataForConnection($connectionId)
+    public function getDataForConnection(string $connectionId): array
     {
         if ($this->isMultiple() && !$this->isAsync()) {
             $result = [
@@ -149,7 +104,7 @@ class ChannelEvent extends ChannelMessage
     /**
      * @param mixed $data
      */
-    public function dump($data)
+    public function dump($data): void
     {
         $this->getInitiator()->send([
             '__dump__' => lx::getDumpString($data),

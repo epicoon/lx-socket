@@ -2,23 +2,12 @@
 
 namespace lx\socket\serverTools;
 
-/**
- * Class OriginValidator
- * @package lx\socket
- */
 class OriginValidator
 {
-    /** @var bool */
-    private $checkOrigin = true;
+    private bool $checkOrigin = true;
+    private array $allowedOrigins = [];
 
-    /** @var array */
-    private $allowedOrigins = [];
-
-    /**
-     * OriginValidator constructor.
-     * @param array $config
-     */
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         if (array_key_exists('checkOrigin', $config)) {
             $this->checkOrigin = (bool)$config['checkOrigin'];
@@ -31,27 +20,17 @@ class OriginValidator
         }
     }
 
-    /**
-     * @return bool
-     */
     public function needValidate() : bool
     {
         return $this->checkOrigin;
     }
 
-    /**
-     * @param string $domain
-     * @return bool
-     */
     public function validate(string $domain) : bool
     {
         $domain = $this->clearDomain($domain);
         return array_key_exists($domain, $this->allowedOrigins) && $this->allowedOrigins[$domain];
     }
 
-    /**
-     * @param string $domain
-     */
     private function setAllowedOrigin(string $domain) : void
     {
         $domain = $this->clearDomain($domain);
@@ -62,10 +41,6 @@ class OriginValidator
         $this->allowedOrigins[$domain] = true;
     }
 
-    /**
-     * @param string $domain
-     * @return string
-     */
     private function clearDomain(string $domain) : string
     {
         $domain = str_replace('https://', '', $domain);

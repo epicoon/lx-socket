@@ -6,7 +6,7 @@ use lx;
 use lx\socket\Channel\ChannelInterface;
 use lx\socket\Channel\ChannelMessage;
 use lx\socket\Channel\ChannelEvent;
-use lx\socket\Channel\ChannelQuestion;
+use lx\socket\Channel\ChannelRequest;
 use RuntimeException;
 
 class Connection
@@ -116,9 +116,6 @@ class Connection
         return true;
     }
 
-    /**
-     * @param int $statusCode
-     */
     public function close(int $statusCode = self::CLOSE_CODE_NORMAL): void
     {
         $payload = str_split(sprintf('%016b', $statusCode), 8);
@@ -160,10 +157,6 @@ class Connection
         $this->destruct($statusCode);
     }
 
-    /**
-     * @param string $message
-     * @param string $type
-     */
     public function log(string $message, string $type = 'lifecycle'): void
     {
         $this->server->log('[client ' . $this->ip . ':' . $this->port . '] ' . $message, $type);
@@ -200,7 +193,6 @@ class Connection
     }
 
     /**
-     * @param int $httpStatusCode
      * @throws RuntimeException
      */
     public function sendHttpResponse(int $httpStatusCode = 400): void
@@ -236,10 +228,7 @@ class Connection
      * PRIVATE
      ******************************************************************************************************************/
 
-    /**
-     * @param string $message
-     */
-    private function processMessage($message)
+    private function processMessage(string $message)
     {
         $message = json_decode($message, true);
 
@@ -248,7 +237,7 @@ class Connection
             switch ($action) {
                 case 'connect':
                     if ($this->channelOpenData === false) {
-                        if (!$this->channel->checkOnConnect($this, $message['auth'] ?? null)) {
+                        if (!$this->channel->checkOnConnect($this, $message['auth'] ?? [])) {
                             $this->log('Conncetion validation failed');
                             $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                             return;
@@ -264,13 +253,10 @@ class Connection
                     break;
 
                 case 'reconnect':
-//                    lx::$app->log('RECONNECTION');
-//                    lx::$app->log($message);
-
                     if (!$this->channel->checkOnReconnect(
                         $this,
                         $message['oldConnectionId'],
-                        $message['auth'] ?? null
+                        $message['auth'] ?? []
                     )) {
                         $this->log('Reconncetion validation failed');
                         $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
@@ -310,19 +296,16 @@ class Connection
             return;
         }
 
-        $isQuestion = $message['__metaData__']['__question__'] ?? null;
-        if ($isQuestion) {
-            $question = new ChannelQuestion($message, $this->getClientChannel(), $this);
-            $this->channel->onQuestion($question);
+        $isRequest = $message['__metaData__']['__request__'] ?? null;
+        if ($isRequest) {
+            $request = new ChannelRequest($message, $this->getClientChannel(), $this);
+            $this->channel->onRequest($request);
             return;
         }
 
         $this->channel->onMessage(new ChannelMessage($message, $this->getClientChannel(), $this));
     }
 
-    /**
-     * @param string $data
-     */
     private function onData(string $data): void
     {
         if ($this->isHandshakeDone) {
@@ -342,10 +325,6 @@ class Connection
         }
     }
 
-    /**
-     * @param string $data
-     * @return bool
-     */
     private function handle(string $data): bool
     {
         if ($this->isWaitingForData === true) {
@@ -403,8 +382,6 @@ class Connection
     }
 
     /**
-     * @param string $data
-     * @return bool
      * @throws RuntimeException
      */
     private function handshake(string $data): bool
@@ -500,10 +477,6 @@ class Connection
     }
 
     /**
-     * @param string $payload
-     * @param string $type
-     * @param bool $masked
-     * @return string
      * @throws RuntimeException
      */
     private function hybi10Encode(string $payload, string $type = 'text', bool $masked = true): string
@@ -577,10 +550,6 @@ class Connection
         return $frame;
     }
 
-    /**
-     * @param string $data
-     * @return array
-     */
     private function hybi10Decode(string $data): array
     {
         $unmaskedPayload = '';
@@ -645,11 +614,6 @@ class Connection
             $dataLength = $payloadLength + $payloadOffset;
         }
 
-        /**
-         * We have to check for large frames here. socket_recv cuts at 1024 bytes
-         * so if websocket-frame is > 1024 bytes we have to wait until whole
-         * data is transferd.
-         */
         if (strlen($data) < $dataLength) {
             return [];
         }

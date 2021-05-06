@@ -5,32 +5,16 @@ namespace lx\socket\Channel;
 use lx\ArrayHelper;
 use lx\socket\Connection;
 
-/**
- * Class ChannelMessage
- * @package lx\socket\Channel
- */
 class ChannelMessage
 {
     /** @var string|array */
     protected $data;
-
-    /** @var array */
-    protected $dataForConnections;
-
-    /** @var array */
-    protected $receivers;
-
-    /** @var bool */
-    protected $returnToSender;
-
-    /** @var bool */
-    protected $private;
-
-    /** @var Channel */
-    protected $channel;
-
-    /** @var Connection|null */
-    protected $initiator;
+    protected array $dataForConnections;
+    protected array $receivers;
+    protected bool $returnToSender;
+    protected bool $private;
+    protected Channel $channel;
+    protected ?Connection $initiator;
 
     /**
      * ChannelEvent constructor.
@@ -38,7 +22,7 @@ class ChannelMessage
      * @param Channel $channel
      * @param Connection|null $initiator
      */
-    public function __construct($data, $channel, $initiator = null)
+    public function __construct($data, Channel $channel, ?Connection $initiator = null)
     {
         if (array_key_exists('__data__', $data) && array_key_exists('__metaData__', $data)) {
             $this->data = $data['__data__'];
@@ -57,26 +41,20 @@ class ChannelMessage
         $this->initiator = $initiator;
     }
 
-    /**
-     * @return Channel
-     */
-    public function getChannel()
+    public function getChannel(): Channel
     {
         return $this->channel;
     }
 
-    /**
-     * @return Connection
-     */
-    public function getInitiator()
+    public function getInitiator(): ?Connection
     {
         return $this->initiator;
     }
 
     /**
-     * @return array
+     * @return array<Connection>
      */
-    public function getReceivers()
+    public function getReceivers(): array
     {
         $connections = $this->getChannel()->getConnections();
         if (empty($this->receivers)) {
@@ -102,9 +80,9 @@ class ChannelMessage
     }
 
     /**
-     * @param string|Connection|string[]|Connection[]|null $receiverIds
+     * @param string|Connection|string[]|Connection[]|null $receivers
      */
-    public function setReceivers($receivers)
+    public function setReceivers($receivers): void
     {
         if (!is_array($receivers)) {
             $receivers = [$receivers];
@@ -122,10 +100,7 @@ class ChannelMessage
         $this->receivers = $receiverIds;
     }
 
-    /**
-     * @return bool
-     */
-    public function isPrivate()
+    public function isPrivate(): bool
     {
         return $this->private;
     }
@@ -139,33 +114,24 @@ class ChannelMessage
     }
 
     /**
-     * @param array $data
+     * @param string|array $data
      */
-    public function setData($data)
+    public function setData($data): void
     {
         $this->data = $data;
     }
 
-    /**
-     * @param array $data
-     */
-    public function addData($data)
+    public function addData(array $data): void
     {
         $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true);
     }
 
-    /**
-     * @param bool $bool
-     */
-    public function setReturnToSender($bool)
+    public function setReturnToSender(bool $bool): void
     {
         $this->returnToSender = $bool;
     }
 
-    /**
-     * @return bool
-     */
-    public function isReturnToSender()
+    public function isReturnToSender(): bool
     {
         if (!$this->initiator) {
             return false;
@@ -178,7 +144,7 @@ class ChannelMessage
      * @param Connection|string $connectionId
      * @param array $data
      */
-    public function setDataForConnection($connectionId, $data)
+    public function setDataForConnection($connectionId, array $data): void
     {
         if ($connectionId instanceof Connection) {
             $connectionId = $connectionId->getId();
@@ -189,10 +155,9 @@ class ChannelMessage
 
     /**
      * @param Connection|string $connectionId
-     * @param string $key
      * @param mixed $data
      */
-    public function addDataForConnection($connectionId, $key, $data)
+    public function addDataForConnection($connectionId, string $key, $data): void
     {
         if ($connectionId instanceof Connection) {
             $connectionId = $connectionId->getId();
@@ -205,7 +170,7 @@ class ChannelMessage
      * @param Connection|string $connectionId
      * @return array
      */
-    public function getDataForConnection($connectionId)
+    public function getDataForConnection($connectionId): array
     {
         if ($connectionId instanceof Connection) {
             $connectionId = $connectionId->getId();

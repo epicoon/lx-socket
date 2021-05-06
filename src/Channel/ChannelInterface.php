@@ -4,26 +4,11 @@ namespace lx\socket\Channel;
 
 use lx\socket\Connection;
 
-/**
- * Interface ChannelInterface
- * @package lx\socket\Channel
- */
 interface ChannelInterface
 {
-    /**
-     * @return string
-     */
-    public function getName();
-
-    /**
-     * @return bool
-     */
-    public function isReconnectionAllowed();
-
-    /**
-     * @return ChannelEventListenerInterface
-     */
-    public function getEventListener();
+    public function getName(): string;
+    public function isReconnectionAllowed(): bool;
+    public function getEventListener(): ?ChannelEventListenerInterface;
 
     public function timerOn(): void;
     public function timerOff(): void;
@@ -37,99 +22,36 @@ interface ChannelInterface
     public function onIteration(): void;
 
     public function onMessage(ChannelMessage $message): void;
-    public function sendMessage(ChannelMessage $message);
+    public function sendMessage(ChannelMessage $message): void;
     public function onEvent(ChannelEvent $event): void;
-    public function sendEvent(ChannelEvent $event);
+    public function sendEvent(ChannelEvent $event): void;
+    public function createEvent(string $eventName, array $eventData = []): ChannelEvent;
+    public function trigger(string $eventName, array $eventData = []): void;
+    public function onRequest(ChannelRequest $request): void;
 
-    /**
-     * @param string $eventName
-     * @param array $eventData
-     */
-    public function createEvent($eventName, $eventData);
+    public function checkOnConnect(Connection $connection, array $authData): bool;
+    public function checkOnReconnect(Connection $connection, string $oldConnectionId, array $authData): bool;
 
-    /**
-     * @param string $eventName
-     * @param array $eventData
-     */
-    public function trigger($eventName, $eventData = []);
+    public function isClosed(): bool;
+    public function close(): void;
+    public function drop(): void;
+    public function open(): void;
 
-    /**
-     * @param ChannelQuestion $question
-     */
-    public function onQuestion($question);
+    public function setPassword(string $password): void;
+    public function requirePassword(): bool;
+    public function checkPassword(string $password): bool;
+    public function getMetaData(): array;
 
+    public function getData(): array;
+    public function getConnectionsData(): array;
     /**
-     * @param Connection $connection
-     * @param mixed $authData
-     * @return bool;
+     * @return array<Connection>
      */
-    public function checkOnConnect($connection, $authData);
-
+    public function getConnections(): array;
     /**
-     * @param Connection $connection
-     * @param mixed $authData
-     * @param string $oldConnectionId
-     * @return bool;
+     * @return array<string>
      */
-    public function checkOnReconnect($connection, $oldConnectionId, $authData);
-
-    /**
-     * @return bool
-     */
-    public function isClosed();
-    public function close();
-    public function drop();
-    public function open();
-
-    /**
-     * @param string $password
-     */
-    public function setPassword($password);
-
-    /**
-     * @return bool
-     */
-    public function requirePassword();
-
-    /**
-     * @param string $password
-     * @return bool
-     */
-    public function checkPassword($password);
-
-    /**
-     * @return array
-     */
-    public function getMetaData();
-
-    /**
-     * @return array
-     */
-    public function getData();
-
-    /**
-     * @return array
-     */
-    public function getConnectionsData();
-
-    /**
-     * @return array
-     */
-    public function getConnections();
-
-    /**
-     * @return array
-     */
-    public function getConnectionIds();
-
-    /**
-     * @return int
-     */
-    public function getConnectionsCount();
-
-    /**
-     * @param string $id
-     * @return bool
-     */
-    public function hasConnection($id);
+    public function getConnectionIds(): array;
+    public function getConnectionsCount(): int;
+    public function hasConnection(string $id): bool;
 }

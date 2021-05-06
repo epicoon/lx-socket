@@ -4,10 +4,6 @@ namespace lx\socket;
 
 use RuntimeException;
 
-/**
- * Class SocketKeeper
- * @package lx\socket
- */
 class SocketKeeper
 {
     /** @var resource */

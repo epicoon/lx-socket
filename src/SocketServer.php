@@ -62,7 +62,6 @@ class SocketServer extends ProcessApplication
     }
 
     /**
-     * @param string $name
      * @return mixed
      */
     public function __get(string $name)

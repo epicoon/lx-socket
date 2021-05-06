@@ -172,37 +172,31 @@ class WebSocketClient #lx:namespace lx.socket {
         }
 
         if (!this.isConnected()) return;
-        this.sendData({__lxws_action__:'close'});
+        __sendData(this, {__lxws_action__:'close'});
     }
 
     break() {
         if (!this.isConnected()) return;
-        this.sendData({__lxws_action__:'break'});
+        __sendData(this, {__lxws_action__:'break'});
     }
 
     send(data, receivers = null, privateMode = false) {
         var msg = __prepareMessageForSend(data, receivers, privateMode);
-        this.sendData(msg);
+        __sendData(this, msg);
     }
 
     trigger(eventName, data = {}, receivers = null, privateMode = false) {
         var msg = __prepareMessageForSend(data, receivers, privateMode);
         msg.__metaData__.__event__ = eventName;
-        this.sendData(msg);
+        __sendData(this, msg);
     }
 
-    ask(questionName, data, callback) {
+    request(requestName, data, callback) {
         var msg = __prepareMessageForSend(data, [this._id], true);
-        var number = __getQuestionNumber(this);
-        this.__qBuffer[number] = callback;
-        msg.__metaData__.__question__ = {name:questionName, number};
-        this.sendData(msg);
-    }
-
-    sendData(data) {
-        if (!this.isConnected()) return;
-        if (this._beforeSend && !this._beforeSend(data)) return;
-        this._socket.send(JSON.stringify(data));
+        var key = __getRequestKey(this);
+        this.__qBuffer[key] = callback;
+        msg.__metaData__.__request__ = {name:requestName, key};
+        __sendData(this, msg);
     }
 
     beforeSend(func) {
@@ -351,10 +345,10 @@ function __setSocketHandlerOnMessage(self) {
             return;
         }
 
-        if (msg.__answer__) {
-            if (msg.__answer__ in self.__qBuffer) {
-                let f = self.__qBuffer[msg.__answer__];
-                delete self.__qBuffer[msg.__answer__];
+        if (msg.__response__) {
+            if (msg.__response__ in self.__qBuffer) {
+                let f = self.__qBuffer[msg.__response__];
+                delete self.__qBuffer[msg.__response__];
                 f(msg.data);
             }
             return;
@@ -427,9 +421,11 @@ function __prepareMessageForSend(data, receivers, privateMode) {
     return result;
 }
 
-function __getQuestionNumber(self) {
+function __getRequestKey(self) {
     if (self.__qCounter == 999999) self.__qCounter = 0;
+    var result = self.__qCounter;
     self.__qCounter++;
+    result += '_' + lx.Math.randomInteger(0, 999999) + '_' + Date.now() + '_' + (new Date).getMilliseconds();
     return self.__qCounter;
 }
 
@@ -447,7 +443,7 @@ function __sendConnectionData(self) {
         channelOpenData: self._channelOpenData || true
     };
     if (self._channelAuthData) data.auth = self._channelAuthData;
-    self.sendData(data);
+    __sendData(self, data);
 }
 
 function __sendReconnectionData(self, oldId) {
@@ -457,5 +453,11 @@ function __sendReconnectionData(self, oldId) {
         oldConnectionId: oldId
     };
     if (self._channelAuthData) data.auth = self._channelAuthData;
-    self.sendData(data);
+    __sendData(self, data);
+}
+
+function __sendData(self, data) {
+    if (!self.isConnected()) return;
+    if (self._beforeSend && !self._beforeSend(data)) return;
+    self._socket.send(JSON.stringify(data));
 }

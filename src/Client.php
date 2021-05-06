@@ -2,57 +2,21 @@
 
 namespace lx\socket;
 
-/**
- * Simple WebSocket client.
- *
- * @author Simon Samtleben <foo@bloatless.org>
- * @version 2.0
- */
 class Client
 {
-    /**
-     * @var string $host
-     */
-    private $host;
-
-    /**
-     * @var int $port
-     */
-    private $port;
-
-    /**
-     * @var string $path
-     */
-    private $path;
-
-    /**
-     * @var string $origin
-     */
-    private $origin;
-
-    /**
-     * @var resource $socket
-     */
+    private string $host;
+    private int $port;
+    private string $path;
+    private string $origin;
+    /** @var resource $socket */
     private $socket = null;
-
-    /**
-     * @var bool $connected
-     */
-    private $connected = false;
+    private bool $connected = false;
 
     public function __destruct()
     {
         $this->disconnect();
     }
 
-    /**
-     * Sends data to remote server.
-     *
-     * @param string $data
-     * @param string $type
-     * @param bool $masked
-     * @return bool
-     */
     public function sendData(string $data, string $type = 'text', bool $masked = true): bool
     {
         if ($this->connected === false) {
@@ -78,15 +42,6 @@ class Client
         return true;
     }
 
-    /**
-     * Connects to a websocket server.
-     *
-     * @param string $host
-     * @param int $port
-     * @param string $path
-     * @param string $origin
-     * @return bool
-     */
     public function connect(string $host, int $port, string $path, string $origin = ''): bool
     {
         $this->host = $host;
@@ -125,11 +80,6 @@ class Client
         return $this->connected;
     }
 
-    /**
-     * Checks if connection to webserver is active.
-     *
-     * @return bool
-     */
     public function checkConnection(): bool
     {
         $this->connected = false;
@@ -154,22 +104,12 @@ class Client
     }
 
 
-    /**
-     * Disconnectes from websocket server.
-     *
-     * @return void
-     */
     public function disconnect(): void
     {
         $this->connected = false;
         is_resource($this->socket) && fclose($this->socket);
     }
 
-    /**
-     * Reconnects to previously connected websocket server.
-     *
-     * @return void
-     */
     public function reconnect(): void
     {
         sleep(10);
@@ -178,14 +118,6 @@ class Client
         $this->connect($this->host, $this->port, $this->path, $this->origin);
     }
 
-    /**
-     * Generates a random string.
-     *
-     * @param int $length
-     * @param bool $addSpaces
-     * @param bool $addNumbers
-     * @return string
-     */
     private function generateRandomString(int $length = 10, bool $addSpaces = true, bool $addNumbers = true): string
     {
         $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"§$%&/()=[]{}';
@@ -208,14 +140,6 @@ class Client
         return $randomString;
     }
 
-    /**
-     * Encodes data according to the WebSocket protocol standard.
-     *
-     * @param string $payload
-     * @param string $type
-     * @param bool $masked
-     * @return string
-     */
     private function hybi10Encode(string $payload, string $type = 'text', bool $masked = true): string
     {
         $frameHead = [];
@@ -287,12 +211,6 @@ class Client
         return $frame;
     }
 
-    /**
-     * Decodes a received frame/sting according to the WebSocket protocol standards.
-     *
-     * @param string $data
-     * @return array
-     */
     private function hybi10Decode(string $data): array
     {
         $unmaskedPayload = '';

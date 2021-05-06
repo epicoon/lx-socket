@@ -7,38 +7,16 @@ use lx\socket\Constants;
 use lx\socket\SocketKeeper;
 use lx\socket\SocketServer;
 
-/**
- * Class ConnectionRepository
- * @package lx\socket
- */
 class ConnectionRepository
 {
-    /** @var SocketServer */
-    private $server;
+    private SocketServer $server;
+    private array $connections = [];
+    private array $ipStorage = [];
+    private array $requestStorage = [];
+    private int $maxConnections = Constants::MAX_CONNECTIONS;
+    private int $maxConnectionsPerIp = Constants::MAX_CONNECTION_PER_IP;
+    private int $maxRequestsPerMinute = Constants::MAX_REQUESTS_PER_MINUTE;
 
-    /** @var array */
-    private $connections = [];
-
-    /** @var array */
-    private $ipStorage = [];
-
-    /** @var array */
-    private $requestStorage = [];
-
-    /** @var int */
-    private $maxConnections = Constants::MAX_CONNECTIONS;
-
-    /** @var int */
-    private $maxConnectionsPerIp = Constants::MAX_CONNECTION_PER_IP;
-
-    /** @var int */
-    private $maxRequestsPerMinute = Constants::MAX_REQUESTS_PER_MINUTE;
-
-    /**
-     * ConnectionRepository constructor.
-     * @param SocketServer $server
-     * @param array $config
-     */
     public function __construct(SocketServer $server, array $config = [])
     {
         $this->server = $server;
@@ -56,11 +34,7 @@ class ConnectionRepository
         }
     }
 
-    /**
-     * @param SocketKeeper $socket
-     * @return Connection|null
-     */
-    public function create(SocketKeeper $socket) : ?Connection
+    public function create(SocketKeeper $socket): ?Connection
     {
         if (count($this->connections) >= $this->maxConnections) {
             return null;
@@ -80,7 +54,7 @@ class ConnectionRepository
      * @param resource $resource
      * @return bool
      */
-    public function has($resource) : bool
+    public function has($resource): bool
     {
         return array_key_exists(SocketKeeper::getResourceId($resource), $this->connections);
     }
@@ -89,7 +63,7 @@ class ConnectionRepository
      * @param resource $resource
      * @return Connection|null
      */
-    public function get($resource) : ?Connection
+    public function get($resource): ?Connection
     {
         if ($this->has($resource)) {
             $connection = $this->connections[SocketKeeper::getResourceId($resource)];
@@ -104,10 +78,7 @@ class ConnectionRepository
         return null;
     }
 
-    /**
-     * @param Connection $connection
-     */
-    public function remove(Connection $connection) : void
+    public function remove(Connection $connection): void
     {
         $connectionId = $connection->getId();
         $socket = $connection->getClientSocket();
@@ -124,11 +95,7 @@ class ConnectionRepository
         unset($connection, $socket, $connectionId, $clientIp, $clientPort);
     }
 
-    /**
-     * @param Connection $connection
-     * @return bool
-     */
-    public function checkRequestLimit(Connection $connection) : bool
+    public function checkRequestLimit(Connection $connection): bool
     {
         if ($connection->isWaitingForData()) {
             return true;
@@ -161,24 +128,16 @@ class ConnectionRepository
     }
 
 
-    /*******************************************************************************************************************
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * PRIVATE
-     ******************************************************************************************************************/
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-    /**
-     * @param SocketKeeper $socket
-     * @return Connection
-     */
-    private function createConnection(SocketKeeper $socket) : Connection
+    private function createConnection(SocketKeeper $socket): Connection
     {
         return new Connection($this->server, $socket);
     }
 
-    /**
-     * @param string $ip
-     * @return bool
-     */
-    private function checkMaxConnectionsPerIp(string $ip) : bool
+    private function checkMaxConnectionsPerIp(string $ip): bool
     {
         if (empty($ip)) {
             return false;
@@ -189,11 +148,7 @@ class ConnectionRepository
         return ($this->ipStorage[$ip] >= $this->maxConnectionsPerIp) ? false : true;
     }
 
-    /**
-     * @param string $ip
-     * @return void
-     */
-    private function addIpToStorage(string $ip) : void
+    private function addIpToStorage(string $ip): void
     {
         if (array_key_exists($ip, $this->ipStorage)) {
             $this->ipStorage[$ip]++;
@@ -202,11 +157,7 @@ class ConnectionRepository
         }
     }
 
-    /**
-     * @param string $ip
-     * @return bool
-     */
-    private function removeIpFromStorage(string $ip) : bool
+    private function removeIpFromStorage(string $ip): bool
     {
         if (!array_key_exists($ip, $this->ipStorage)) {
             return false;

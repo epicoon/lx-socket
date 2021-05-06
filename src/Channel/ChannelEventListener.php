@@ -4,45 +4,26 @@ namespace lx\socket\Channel;
 
 use lx\StringHelper;
 
-/**
- * Class ChannelEventListener
- * @package lx\socket\Channel
- */
 class ChannelEventListener implements ChannelEventListenerInterface
 {
-    /** @var ChannelInterface */
-    private $channel;
+    private ChannelInterface $channel;
 
-    /**
-     * @return array
-     */
-    public function getAvailableEventNames()
+    public function getAvailableEventNames(): array
     {
         return [];
     }
 
-    /**
-     * @param ChannelInterface $channel
-     * @return void
-     */
-    public function setChannel($channel)
+    public function setChannel(ChannelInterface $channel): void
     {
         $this->channel = $channel;
     }
 
-    /**
-     * @return ChannelInterface
-     */
-    public function getChannel()
+    public function getChannel(): ChannelInterface
     {
         return $this->channel;
     }
 
-    /**
-     * @param ChannelEvent $event
-     * @return bool
-     */
-    public function processEvent($event)
+    public function processAnyEvent(ChannelEvent $event): bool
     {
         if (in_array($event->getName(), $this->getAvailableEventNames())) {
             return true;
@@ -52,20 +33,16 @@ class ChannelEventListener implements ChannelEventListenerInterface
         if (method_exists($this, $eventName)) {
             $result = $this->$eventName($event);
         } else {
-            $result = $this->processEventDefault($event);
+            $result = $this->processEvent($event);
         }
 
         if ($result === null) {
             $result = true;
         }
-        return $result;
+        return (bool)$result;
     }
 
-    /**
-     * @param ChannelEvent $event
-     * @return bool
-     */
-    public function processEventDefault($event)
+    public function processEvent(ChannelEvent $event): bool
     {
         $event->replaceEvent('error', [
             'message' => 'Unknown event'
