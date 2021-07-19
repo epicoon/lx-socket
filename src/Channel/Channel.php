@@ -277,8 +277,8 @@ abstract class Channel implements ChannelInterface
     public function sendMessage(ChannelMessage $message): void
     {
         $receivers = $message->getReceivers();
-        foreach ($receivers as $id => $receiver) {
-            $receiver->send($message->getDataForConnection($id));
+        foreach ($receivers as $receiver) {
+            $receiver->send($message->getDataForConnection($receiver));
         }
     }
 

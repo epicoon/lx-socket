@@ -76,27 +76,27 @@ class ChannelEvent extends ChannelMessage
         return $this->isAsync;
     }
 
-    public function getDataForConnection(string $connectionId): array
+    public function getDataForConnection(Connection $connection): array
     {
         if ($this->isMultiple() && !$this->isAsync()) {
             $result = [
                 '__multipleEvents__' => [
                     array_merge(
-                        parent::getDataForConnection($connectionId),
+                        parent::getDataForConnection($connection),
                         ['__event__' => $this->getName()]
                     )
                 ],
             ];
             foreach ($this->getSubEvents() as $subEvent) {
                 $result['__multipleEvents__'][] = array_merge(
-                    $subEvent->getDataForConnection($connectionId),
+                    $subEvent->getDataForConnection($connection),
                     ['__event__' => $subEvent->getName()]
                 );
             }
             return $result;
         }
 
-        $result = parent::getDataForConnection($connectionId);
+        $result = parent::getDataForConnection($connection);
         $result['__event__'] = $this->getName();
         return $result;
     }

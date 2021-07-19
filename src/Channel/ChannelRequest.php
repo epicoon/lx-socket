@@ -23,9 +23,9 @@ class ChannelRequest extends ChannelMessage
         return $this->name;
     }
 
-    public function getDataForConnection(string $connectionId): array
+    public function getDataForConnection(Connection $connection): array
     {
-        $result = parent::getDataForConnection($connectionId);
+        $result = parent::getDataForConnection($connection);
         $result['__response__'] = $this->number;
 
         return $result;

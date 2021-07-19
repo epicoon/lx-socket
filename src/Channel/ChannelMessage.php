@@ -140,48 +140,25 @@ class ChannelMessage
         return $this->returnToSender;
     }
 
-    /**
-     * @param Connection|string $connectionId
-     * @param array $data
-     */
-    public function setDataForConnection($connectionId, array $data): void
+    public function setDataForConnection(Connection $connection, array $data): void
     {
-        if ($connectionId instanceof Connection) {
-            $connectionId = $connectionId->getId();
-        }
-
-        $this->dataForConnections[$connectionId] = $data;
+        $this->dataForConnections[$connection->getId()] = $data;
     }
 
-    /**
-     * @param Connection|string $connectionId
-     * @param mixed $data
-     */
-    public function addDataForConnection($connectionId, string $key, $data): void
+    public function addDataForConnection(Connection $connection, string $key, $data): void
     {
-        if ($connectionId instanceof Connection) {
-            $connectionId = $connectionId->getId();
-        }
-
-        $this->dataForConnections[$connectionId][$key] = $data;
+        $this->dataForConnections[$connection->getId()][$key] = $data;
     }
 
-    /**
-     * @param Connection|string $connectionId
-     * @return array
-     */
-    public function getDataForConnection($connectionId): array
+    public function getDataForConnection(Connection $connection): array
     {
-        if ($connectionId instanceof Connection) {
-            $connectionId = $connectionId->getId();
-        }
-
         $result = [
             'data' => $this->getData(),
             'private' => $this->isPrivate(),
             'from' => $this->getInitiator() ? $this->getInitiator()->getId() : null,
             'receivers' => $this->receivers,
         ];
+        $connectionId = $connection->getId();
 
         if (array_key_exists($connectionId, $this->dataForConnections)) {
             $result['data'] += $this->dataForConnections[$connectionId];
