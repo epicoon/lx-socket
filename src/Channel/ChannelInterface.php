@@ -28,11 +28,17 @@ interface ChannelInterface
     public function createEvent(string $eventName, array $eventData = []): ChannelEvent;
     public function trigger(string $eventName, array $eventData = []): void;
     public function onRequest(ChannelRequest $request): void;
+    public function handleRequest(ChannelRequest $request): ChannelResponse;
+    /**
+     * @param mixed $data
+     */
+    public function prepareResponse($data): ChannelResponse;
 
     public function checkOnConnect(Connection $connection, array $authData): bool;
     public function checkOnReconnect(Connection $connection, string $oldConnectionId, array $authData): bool;
 
     public function isClosed(): bool;
+    public function beforeClose(): void;
     public function close(): void;
     public function drop(): void;
     public function open(): void;
@@ -40,7 +46,11 @@ interface ChannelInterface
     public function setPassword(string $password): void;
     public function requirePassword(): bool;
     public function checkPassword(string $password): bool;
-    public function getMetaData(): array;
+    public function getParameters(): array;
+    /**
+     * @return mixed
+     */
+    public function getParameter(string $name);
 
     public function getData(): array;
     public function getConnectionsData(): array;

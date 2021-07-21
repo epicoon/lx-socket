@@ -7,6 +7,19 @@
 #lx:require EventListener;
 #lx:require Event;
 
+
+class RequestHandler {
+    constructor(socket, key) {
+        this.socket = socket;
+        this.key = key;
+    }
+    
+    then(callback) {
+        this.socket.__qBuffer[this.key] = callback;
+    }
+}
+
+
 class WebSocketClient #lx:namespace lx.socket {
     #lx:const
         STATUS_NEW = 1,
@@ -191,12 +204,14 @@ class WebSocketClient #lx:namespace lx.socket {
         __sendData(this, msg);
     }
 
-    request(requestName, data, callback) {
+    request(route, data, callback) {
         var msg = __prepareMessageForSend(data, [this._id], true);
         var key = __getRequestKey(this);
-        this.__qBuffer[key] = callback;
-        msg.__metaData__.__request__ = {name:requestName, key};
+        // this.__qBuffer[key] = callback;
+        msg.__metaData__.__request__ = {route, key};
+        var handler = new RequestHandler(this, key);
         __sendData(this, msg);
+        return handler;
     }
 
     beforeSend(func) {

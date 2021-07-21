@@ -6,28 +6,25 @@ use lx\socket\Connection;
 
 class ChannelRequest extends ChannelMessage
 {
-    private string $name;
-    private string $number;
+    private string $route;
+    private string $key;
 
     public function __construct(array $data, Channel $channel, Connection $initiator)
     {
         parent::__construct($data, $channel, $initiator);
 
-        $this->name = $data['__metaData__']['__request__']['name'];
-        $this->number = $data['__metaData__']['__request__']['number'];
+        $this->route = $data['__metaData__']['__request__']['route'];
+        $this->key = $data['__metaData__']['__request__']['key'];
         $this->setReceivers($initiator);
     }
 
-    public function getName(): string
+    public function getRoute(): string
     {
-        return $this->name;
+        return $this->route;
     }
-
-    public function getDataForConnection(Connection $connection): array
+    
+    public function getKey(): string
     {
-        $result = parent::getDataForConnection($connection);
-        $result['__response__'] = $this->number;
-
-        return $result;
+        return $this->key;
     }
 }

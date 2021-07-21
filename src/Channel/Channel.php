@@ -21,7 +21,7 @@ abstract class Channel implements ChannelInterface
     /** @var Vector&iterable<string> */
     protected Vector $formerConnectionIds;
     protected ?ChannelEventListenerInterface $eventListener = null;
-    protected array $metaData = [];
+    protected array $parameters = [];
     protected ?string $password = null;
     protected bool $isClosed = false;
     protected float $timerStart = 0;
@@ -47,7 +47,7 @@ abstract class Channel implements ChannelInterface
     {
         return [
             'name' => true,
-            'metaData' => true,
+            'parameters' => true,
             'eventListener' => ChannelEventListener::class,
         ];
     }
@@ -112,12 +112,19 @@ abstract class Channel implements ChannelInterface
     {
         return $this->isClosed;
     }
+    
+    public function beforeClose(): void
+    {
+        // pass
+    }
 
     public function close(): void
     {
         if ($this->isClosed) {
             return;
         }
+        
+        $this->beforeClose();
 
         foreach ($this->connections as $connection) {
             $connection->close(Connection::CLOSE_CODE_LEAVE);
@@ -157,11 +164,19 @@ abstract class Channel implements ChannelInterface
         return $this->password == $password;
     }
 
-    public function getMetaData(): array
+    public function getParameters(): array
     {
-        $metaData = $this->metaData;
-        $metaData['requirePassword'] = $this->requirePassword();
-        return $metaData;
+        $parameters = $this->parameters;
+        $parameters['requirePassword'] = $this->requirePassword();
+        return $parameters;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getParameter(string $name)
+    {
+        return $this->parameters[$name] ?? null;
     }
 
     public function getData(): array
@@ -236,6 +251,10 @@ abstract class Channel implements ChannelInterface
     public function onDisconnect(Connection $connection): void
     {
         $id = $connection->getId();
+        if (!array_key_exists($id, $this->connections)) {
+            return;
+        }
+        
         unset($this->connections[$id]);
         if ($this->isReconnectionAllowed() && !$this->formerConnectionIds->contains($id)) {
             $this->formerConnectionIds->push($id);
@@ -324,7 +343,18 @@ abstract class Channel implements ChannelInterface
 
     public function onRequest(ChannelRequest $request): void
     {
-        //TODO пропустить через ChannelController, отдавать ChannelResponse
-        $this->sendMessage($request);
+        $response = $this->handleRequest($request);
+        $response->initTransportData($request);
+        $this->sendMessage($response);
+    }
+
+    public function handleRequest(ChannelRequest $request): ChannelResponse
+    {
+        return $this->prepareResponse([]);
+    }
+
+    public function prepareResponse($data): ChannelResponse
+    {
+        return new ChannelResponse($data, $this);
     }
 }

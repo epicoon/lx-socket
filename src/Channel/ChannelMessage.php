@@ -145,9 +145,17 @@ class ChannelMessage
         $this->dataForConnections[$connection->getId()] = $data;
     }
 
-    public function addDataForConnection(Connection $connection, string $key, $data): void
+    public function addDataForConnection(Connection $connection, array $data, bool $rewrite = false): void
     {
-        $this->dataForConnections[$connection->getId()][$key] = $data;
+        if (!array_key_exists($connection->getId(), $this->dataForConnections)) {
+            $this->dataForConnections[$connection->getId()] = [];
+        }
+        
+        $this->dataForConnections[$connection->getId()] = ArrayHelper::mergeRecursiveDistinct(
+            $this->dataForConnections[$connection->getId()],
+            $data,
+            $rewrite
+        );
     }
 
     public function getDataForConnection(Connection $connection): array
