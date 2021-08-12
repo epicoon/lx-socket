@@ -21,7 +21,12 @@ class ChannelEvent extends ChannelMessage
         $this->subEvents = [];
         $this->isAsync = true;
     }
-    
+
+    public function send(): void
+    {
+        $this->getChannel()->sendEvent($this);
+    }
+
     public function getName(): string
     {
         return $this->name;
@@ -43,9 +48,10 @@ class ChannelEvent extends ChannelMessage
         return $event;
     }
 
-    public function setAsync($value): void
+    public function setAsync($value): ChannelEvent
     {
         $this->isAsync = $value;
+        return $this;
     }
 
     /**

@@ -11,7 +11,7 @@ class ChannelResponse extends ChannelMessage
     public function initTransportData(ChannelRequest $request)
     {
         $this->key = $request->getKey();
-        $this->setReceivers($request->getInitiator());
+        $this->setReceiver($request->getInitiator());
     }
 
     public function getDataForConnection(Connection $connection): array

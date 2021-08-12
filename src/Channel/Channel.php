@@ -179,7 +179,7 @@ abstract class Channel implements ChannelInterface
         return $this->parameters[$name] ?? null;
     }
 
-    public function getData(): array
+    public function getChannelData(): array
     {
         return [];
     }

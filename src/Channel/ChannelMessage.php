@@ -40,6 +40,11 @@ class ChannelMessage
         $this->channel = $channel;
         $this->initiator = $initiator;
     }
+    
+    public function send(): void
+    {
+        $this->getChannel()->sendMessage($this);
+    }
 
     public function getChannel(): Channel
     {
@@ -79,27 +84,6 @@ class ChannelMessage
         return $receivers;
     }
 
-    /**
-     * @param string|Connection|string[]|Connection[]|null $receivers
-     */
-    public function setReceivers($receivers): void
-    {
-        if (!is_array($receivers)) {
-            $receivers = [$receivers];
-        }
-
-        $receiverIds = [];
-        foreach ($receivers as $receiver) {
-            if ($receiver instanceof Connection) {
-                $receiverIds[] = $receiver->getId();
-            } elseif (is_string($receiver)) {
-                $receiverIds[] = $receiver;
-            }
-        }
-
-        $this->receivers = $receiverIds;
-    }
-
     public function isPrivate(): bool
     {
         return $this->private;
@@ -113,24 +97,6 @@ class ChannelMessage
         return $this->data;
     }
 
-    /**
-     * @param string|array $data
-     */
-    public function setData($data): void
-    {
-        $this->data = $data;
-    }
-
-    public function addData(array $data): void
-    {
-        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true);
-    }
-
-    public function setReturnToSender(bool $bool): void
-    {
-        $this->returnToSender = $bool;
-    }
-
     public function isReturnToSender(): bool
     {
         if (!$this->initiator) {
@@ -138,24 +104,6 @@ class ChannelMessage
         }
 
         return $this->returnToSender;
-    }
-
-    public function setDataForConnection(Connection $connection, array $data): void
-    {
-        $this->dataForConnections[$connection->getId()] = $data;
-    }
-
-    public function addDataForConnection(Connection $connection, array $data, bool $rewrite = false): void
-    {
-        if (!array_key_exists($connection->getId(), $this->dataForConnections)) {
-            $this->dataForConnections[$connection->getId()] = [];
-        }
-        
-        $this->dataForConnections[$connection->getId()] = ArrayHelper::mergeRecursiveDistinct(
-            $this->dataForConnections[$connection->getId()],
-            $data,
-            $rewrite
-        );
     }
 
     public function getDataForConnection(Connection $connection): array
@@ -175,5 +123,81 @@ class ChannelMessage
         $result['toMe'] = in_array($connectionId, $this->receivers);
 
         return $result;
+    }
+
+    public function setReceiver(Connection $receiver): ChannelMessage
+    {
+        $this->receivers = [$receiver->getId()];
+        return $this;
+    }
+
+    public function addReceiver(Connection $receiver): ChannelMessage
+    {
+        if (!in_array($receiver->getId(), $this->receivers)) {
+            $this->receivers[] = $receiver->getId();
+        }
+        return $this;
+    }
+
+    /**
+     * @param array<Connection> $receivers
+     */
+    public function setReceivers(array $receivers): ChannelMessage
+    {
+        $this->receivers = [];
+        $this->addReceivers($receivers);
+        return $this;
+    }
+
+    /**
+     * @param array<Connection> $receivers
+     */
+    public function addReceivers(array $receivers): ChannelMessage
+    {
+        foreach ($receivers as $receiver) {
+            $this->addReceiver($receiver);
+        }
+        return $this;
+    }
+    
+    /**
+     * @param string|array $data
+     */
+    public function setData($data): ChannelMessage
+    {
+        $this->data = $data;
+        return $this;
+    }
+
+    public function addData(array $data): ChannelMessage
+    {
+        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true);
+        return $this;
+    }
+
+    public function setReturnToSender(bool $bool): ChannelMessage
+    {
+        $this->returnToSender = $bool;
+        return $this;
+    }
+
+    public function setDataForConnection(Connection $connection, array $data): ChannelMessage
+    {
+        $this->dataForConnections[$connection->getId()] = $data;
+        return $this;
+    }
+
+    public function addDataForConnection(Connection $connection, array $data, bool $rewrite = false): ChannelMessage
+    {
+        if (!array_key_exists($connection->getId(), $this->dataForConnections)) {
+            $this->dataForConnections[$connection->getId()] = [];
+        }
+        
+        $this->dataForConnections[$connection->getId()] = ArrayHelper::mergeRecursiveDistinct(
+            $this->dataForConnections[$connection->getId()],
+            $data,
+            $rewrite
+        );
+        return $this;
     }
 }

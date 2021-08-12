@@ -15,7 +15,7 @@ class ChannelRequest extends ChannelMessage
 
         $this->route = $data['__metaData__']['__request__']['route'];
         $this->key = $data['__metaData__']['__request__']['key'];
-        $this->setReceivers($initiator);
+        $this->setReceiver($initiator);
     }
 
     public function getRoute(): string
