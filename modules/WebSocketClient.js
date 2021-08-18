@@ -204,10 +204,9 @@ class WebSocketClient #lx:namespace lx.socket {
         __sendData(this, msg);
     }
 
-    request(route, data, callback) {
+    request(route, data) {
         var msg = __prepareMessageForSend(data, [this._id], true);
         var key = __getRequestKey(this);
-        // this.__qBuffer[key] = callback;
         msg.__metaData__.__request__ = {route, key};
         var handler = new RequestHandler(this, key);
         __sendData(this, msg);
