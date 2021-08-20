@@ -179,16 +179,16 @@ abstract class Channel implements ChannelInterface
         return $this->parameters[$name] ?? null;
     }
 
-    public function getChannelData(): array
+    public function getChannelData(Connection $connection): array
     {
         return [];
     }
 
-    public function getConnectionsData(): array
+    public function getConnectionsData(Connection $connection): array
     {
         $result = [];
-        foreach ($this->connections as $connection) {
-            $result[$connection->getId()] = $connection->getChannelOpenData();
+        foreach ($this->connections as $iConnection) {
+            $result[$iConnection->getId()] = $iConnection->getChannelOpenData();
         }
         return $result;
     }

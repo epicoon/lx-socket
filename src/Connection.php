@@ -314,8 +314,8 @@ class Connection
             if ($this->handshake($data)) {
                 $response = [
                     'id' => $this->id,
-                    'channelData' => $this->channel->getChannelData(),
-                    'connections' => $this->channel->getConnectionsData(),
+                    'channelData' => $this->channel->getChannelData($this),
+                    'connections' => $this->channel->getConnectionsData($this),
                 ];
                 if ($this->channel->isReconnectionAllowed()) {
                     $response['reconnectionAllowed'] = true;

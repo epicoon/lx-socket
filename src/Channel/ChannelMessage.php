@@ -24,7 +24,10 @@ class ChannelMessage
      */
     public function __construct($data, Channel $channel, ?Connection $initiator = null)
     {
-        if (array_key_exists('__data__', $data) && array_key_exists('__metaData__', $data)) {
+        if (is_array($data) 
+            && array_key_exists('__data__', $data)
+            && array_key_exists('__metaData__', $data)
+        ) {
             $this->data = $data['__data__'];
             $this->receivers = $data['__metaData__']['receivers'] ?? [];
             $this->private = $data['__metaData__']['private'] ?? false;

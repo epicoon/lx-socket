@@ -52,8 +52,8 @@ interface ChannelInterface
      */
     public function getParameter(string $name);
 
-    public function getChannelData(): array;
-    public function getConnectionsData(): array;
+    public function getChannelData(Connection $connection): array;
+    public function getConnectionsData(Connection $connection): array;
     /**
      * @return array<Connection>
      */
