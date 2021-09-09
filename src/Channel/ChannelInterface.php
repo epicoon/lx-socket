@@ -35,7 +35,7 @@ interface ChannelInterface
     public function prepareResponse($data): ChannelResponse;
 
     public function checkOnConnect(Connection $connection, array $authData): bool;
-    public function checkOnReconnect(Connection $connection, string $oldConnectionId, array $authData): bool;
+    public function checkOnReconnect(Connection $connection, string $oldConnectionId): bool;
 
     public function isClosed(): bool;
     public function beforeClose(): void;

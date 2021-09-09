@@ -141,7 +141,7 @@ class WebSocketClient #lx:namespace lx.socket {
         return this._errors;
     }
 
-    connect(channelOpenData = null, password = null) {
+    connect(channelOpenData = null, authData = null) {
         if (this.isConnected()) return;
 
         let url = this.getUrl();
@@ -160,7 +160,7 @@ class WebSocketClient #lx:namespace lx.socket {
         }
 
         this._channelOpenData = channelOpenData;
-        this._channelAuthData = password;
+        this._channelAuthData = authData;
         if (window.MozWebSocket) this._socket = new MozWebSocket(url);
         else if (window.WebSocket) this._socket = new WebSocket(url);
         this._socket.binaryType = 'blob';
@@ -306,6 +306,7 @@ function __setSocketHandlerOnMessage(self) {
                 var oldConnectionId = lxSocketData.reconnect[channelKey] || null;
                 lxSocketData.reconnect[channelKey] = self._id;
                 lx.Storage.set('lxsocket', lxSocketData);
+
                 if (oldConnectionId) {
                     __sendReconnectionData(self, oldConnectionId);
                     return;
@@ -318,6 +319,9 @@ function __setSocketHandlerOnMessage(self) {
 
         if (msg.__lxws_event__) {
             switch (msg.__lxws_event__) {
+                case 'oldConnectionIdNotFound':
+                    __sendConnectionData(self);
+                    break;
                 case 'clientJoin':
                     var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
@@ -397,6 +401,9 @@ function __setSocketHandlerOnClose(self) {
 function __setSocketHandlerOnError(self) {
     if (self._socket === null) return;
     self._socket.onError =(e)=>{
+
+        //TODO - если канала нет, надо ключ канала убрать отсюда lx.Storage.get('lxsocket')
+
         self._errors.push(e);
         if (self._onError) self._onError(e);
         self._socket = null;

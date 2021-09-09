@@ -228,6 +228,20 @@ class Connection
      * PRIVATE
      ******************************************************************************************************************/
 
+    private function checkOnConnect(array $authData): bool
+    {
+        if (!$this->channel->checkOnConnect($this, $authData['auth'] ?? [])) {
+            return false;
+        }
+
+        $this->channelOpenData = $authData['channelOpenData'] ?? true;
+        if (!$this->channelOpenData) {
+            $this->channelOpenData = true;
+        }
+
+        return true;
+    }
+    
     private function processMessage(string $message)
     {
         $message = json_decode($message, true);
@@ -237,15 +251,10 @@ class Connection
             switch ($action) {
                 case 'connect':
                     if ($this->channelOpenData === false) {
-                        if (!$this->channel->checkOnConnect($this, $message['auth'] ?? [])) {
+                        if (!$this->checkOnConnect($message)) {
                             $this->log('Conncetion validation failed');
                             $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                             return;
-                        }
-
-                        $this->channelOpenData = $message['channelOpenData'] ?? true;
-                        if (!$this->channelOpenData) {
-                            $this->channelOpenData = true;
                         }
 
                         $this->channel->onConnect($this);
@@ -253,22 +262,20 @@ class Connection
                     break;
 
                 case 'reconnect':
-                    if (!$this->channel->checkOnReconnect(
-                        $this,
-                        $message['oldConnectionId'],
-                        $message['auth'] ?? []
-                    )) {
+                    if (!$this->channel->checkOnReconnect($this, $message['oldConnectionId'])) {
+                        $this->send([
+                            '__lxws_event__' => 'oldConnectionIdNotFound',
+                        ]);
+                        return;
+                    }
+
+                    if (!$this->checkOnConnect($message)) {
                         $this->log('Reconncetion validation failed');
                         $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                         return;
                     }
 
                     $this->oldId = $message['oldConnectionId'];
-                    $this->channelOpenData = $message['channelOpenData'] ?? true;
-                    if (!$this->channelOpenData) {
-                        $this->channelOpenData = true;
-                    }
-
                     $this->channel->onReconnect($this);
                     break;
 

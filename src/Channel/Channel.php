@@ -97,15 +97,14 @@ abstract class Channel implements ChannelInterface
         return true;
     }
 
-    public function checkOnReconnect(Connection $connection, string $oldConnectionId, array $authData): bool
+    public function checkOnReconnect(Connection $connection, string $oldConnectionId): bool
     {
         if (!$this->formerConnectionIds->contains($oldConnectionId)) {
             return false;
         }
 
         $this->formerConnectionIds->remove($oldConnectionId);
-
-        return $this->checkOnConnect($connection, $authData);
+        return true;
     }
 
     public function isClosed(): bool
