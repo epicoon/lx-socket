@@ -292,7 +292,7 @@ function __setSocketHandlerOnMessage(self) {
             for (var mateId in msg.connections) {
                 self._channelMates[mateId] = new lx.socket.ChannelMate(self, mateId, msg.connections[mateId]);
             }
-            self._channelData = msg.channelData.isArray ? {} : msg.channelData;
+            self._channelData = lx.isArray(msg.channelData) ? {} : msg.channelData;
             if (self._onConnected) self._onConnected(self.getChannelMates(), self.getChannelData());
 
             if (msg.reconnectionAllowed) {
@@ -359,7 +359,7 @@ function __setSocketHandlerOnMessage(self) {
         }
 
         if (msg.__multipleEvents__ && self._onEvent) {
-            msg.__multipleEvents__.each(e=>__processEvent(self, e));
+            msg.__multipleEvents__.forEach(e=>__processEvent(self, e));
             return;
         }
 
@@ -454,7 +454,7 @@ function __processEvent(self, msg) {
     let event = new lx.socket.Event(msg.__event__, self, msg);
     if (self._onEvent instanceof lx.socket.EventListener)
         self._onEvent.processEvent(event);
-    else if (self._onEvent.isFunction)
+    else if (lx.isFunction(self._onEvent))
         self._onEvent(event);
 }
 

@@ -22,7 +22,7 @@ class Message #lx:namespace lx.socket
 
     getReceivers() {
         var result = [];
-        this._receivers.each(id=>result.push(this._socket.getChannelMate(id)));
+        this._receivers.forEach(id=>result.push(this._socket.getChannelMate(id)));
         return result;
     }
 
