@@ -24,7 +24,7 @@ class ChannelMessage
      */
     public function __construct($data, Channel $channel, ?Connection $initiator = null)
     {
-        if (is_array($data) 
+        if (is_array($data)
             && array_key_exists('__data__', $data)
             && array_key_exists('__metaData__', $data)
         ) {
@@ -43,7 +43,7 @@ class ChannelMessage
         $this->channel = $channel;
         $this->initiator = $initiator;
     }
-    
+
     public function send(): void
     {
         $this->getChannel()->sendMessage($this);
@@ -52,6 +52,11 @@ class ChannelMessage
     public function getChannel(): Channel
     {
         return $this->channel;
+    }
+
+    public function setInitiator(Connection $connection): void
+    {
+        $this->initiator = $connection;
     }
 
     public function getInitiator(): ?Connection
