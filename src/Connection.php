@@ -252,25 +252,22 @@ class Connection
                 case 'connect':
                     if ($this->channelOpenData === false) {
                         if (!$this->checkOnConnect($message)) {
-                            $this->log('Conncetion validation failed');
+                            $this->log('Connection validation failed');
                             $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                             return;
                         }
-
                         $this->channel->onConnect($this);
                     }
                     break;
 
                 case 'reconnect':
                     if (!$this->channel->checkOnReconnect($this, $message['oldConnectionId'])) {
-                        $this->send([
-                            '__lxws_event__' => 'oldConnectionIdNotFound',
-                        ]);
+                        $this->send(['__lxws_event__' => 'oldConnectionIdNotFound']);
                         return;
                     }
 
                     if (!$this->checkOnConnect($message)) {
-                        $this->log('Reconncetion validation failed');
+                        $this->log('Reconnection validation failed');
                         $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
                         return;
                     }
@@ -281,15 +278,11 @@ class Connection
 
                 case 'close':
                     $this->isReadyForClose = true;
-                    $this->send([
-                        '__lxws_event__' => 'close',
-                    ]);
+                    $this->send(['__lxws_event__' => 'close']);
                     break;
 
                 case 'break':
-                    $this->send([
-                        '__lxws_event__' => 'break',
-                    ]);
+                    $this->send(['__lxws_event__' => 'break']);
                     break;
             }
 

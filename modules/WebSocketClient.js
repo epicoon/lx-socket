@@ -293,7 +293,6 @@ function __setSocketHandlerOnMessage(self) {
                 self._channelMates[mateId] = new lx.socket.ChannelMate(self, mateId, msg.connections[mateId]);
             }
             self._channelData = lx.isArray(msg.channelData) ? {} : msg.channelData;
-            if (self._onConnected) self._onConnected(self.getChannelMates(), self.getChannelData());
 
             if (msg.reconnectionAllowed) {
                 self._reconnectionAllowed = true;
@@ -325,7 +324,11 @@ function __setSocketHandlerOnMessage(self) {
                 case 'clientJoin':
                     var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
-                    if (self._onClientJoin) self._onClientJoin(mate);
+                    if (mate.isLocal()) {
+                        if (self._onConnected) self._onConnected();
+                    } else {
+                        if (self._onClientJoin) self._onClientJoin(mate);
+                    }
                     break;
                 case 'clientReconnected':
                     var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
