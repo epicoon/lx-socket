@@ -46,8 +46,6 @@ abstract class Channel implements ChannelInterface
     public static function getDependenciesConfig(): array
     {
         return [
-            'name' => true,
-            'parameters' => true,
             'eventListener' => ChannelEventListener::class,
         ];
     }
