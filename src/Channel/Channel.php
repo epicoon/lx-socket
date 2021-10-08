@@ -43,7 +43,7 @@ abstract class Channel implements ChannelInterface
         // pass
     }
 
-    public static function getConfigProtocol(): array
+    public static function getDependenciesConfig(): array
     {
         return [
             'name' => true,
