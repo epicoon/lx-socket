@@ -5,12 +5,13 @@ namespace lx\socket\Channel;
 use lx;
 use Exception;
 use InvalidArgumentException;
+use lx\ObjectInterface;
 use lx\ObjectTrait;
 use lx\socket\Connection;
 use RuntimeException;
 use lx\Vector;
 
-abstract class Channel implements ChannelInterface
+abstract class Channel implements ChannelInterface, ObjectInterface
 {
     use ObjectTrait;
 
@@ -26,7 +27,7 @@ abstract class Channel implements ChannelInterface
     protected bool $isClosed = false;
     protected float $timerStart = 0;
 
-    public function __construct(array $config = [])
+    public function __construct(iterable $config = [])
     {
         $this->__objectConstruct($config);
 
