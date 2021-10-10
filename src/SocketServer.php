@@ -38,7 +38,7 @@ class SocketServer extends ProcessApplication
      *  - maxConnectionsPerIp
      *  - maxRequestsPerMinute
      */
-    public function __construct(array $config = [])
+    public function __construct(iterable $config = [])
     {
         parent::__construct($config);
 

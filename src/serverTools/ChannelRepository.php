@@ -69,7 +69,7 @@ class ChannelRepository
         }
 
         $config['name'] = $channelName;
-        $channel = \lx::$app->diProcessor->create($channelClassName, $config);
+        $channel = \lx::$app->diProcessor->create($channelClassName, [$config]);
         $this->channels[$channelName] = $channel;
 
         return $channel;
