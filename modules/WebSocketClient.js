@@ -1,7 +1,5 @@
 #lx:module lx.socket.WebSocketClient;
 
-#lx:private;
-
 #lx:require ChannelMate;
 #lx:require Message;
 #lx:require EventListener;

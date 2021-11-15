@@ -1,5 +1,3 @@
-#lx:private;
-
 class Event extends lx.socket.Message #lx:namespace lx.socket
 {
     constructor(eventName, socket, params) {

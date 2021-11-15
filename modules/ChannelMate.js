@@ -1,5 +1,3 @@
-#lx:private;
-
 class ChannelMate #lx:namespace lx.socket
 {
     constructor(socket, id, data) {

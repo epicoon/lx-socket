@@ -1,5 +1,3 @@
-#lx:private;
-
 class EventListener #lx:namespace lx.socket
 {
     constructor() {

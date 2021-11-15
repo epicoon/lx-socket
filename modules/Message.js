@@ -1,5 +1,3 @@
-#lx:private;
-
 class Message #lx:namespace lx.socket
 {
     constructor(socket, params) {
