@@ -1,4 +1,5 @@
-class Message #lx:namespace lx.socket
+#lx:namespace lx.socket;
+class Message
 {
     constructor(socket, params) {
         this._socket = socket;

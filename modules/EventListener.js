@@ -1,4 +1,5 @@
-class EventListener #lx:namespace lx.socket
+#lx:namespace lx.socket;
+class EventListener
 {
     constructor() {
         this._socket = null;

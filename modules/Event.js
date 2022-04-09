@@ -1,4 +1,5 @@
-class Event extends lx.socket.Message #lx:namespace lx.socket
+#lx:namespace lx.socket;
+class Event extends lx.socket.Message
 {
     constructor(eventName, socket, params) {
         super(socket, params);

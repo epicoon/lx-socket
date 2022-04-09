@@ -18,7 +18,8 @@ class RequestHandler {
 }
 
 
-class WebSocketClient #lx:namespace lx.socket {
+#lx:namespace lx.socket;
+class WebSocketClient {
     #lx:const
         STATUS_NEW = 1,
         STATUS_IN_CONNECTING = 2,

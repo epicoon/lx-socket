@@ -1,4 +1,5 @@
-class ChannelMate #lx:namespace lx.socket
+#lx:namespace lx.socket;
+class ChannelMate
 {
     constructor(socket, id, data) {
         this._socket = socket;
