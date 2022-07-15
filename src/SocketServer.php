@@ -11,9 +11,6 @@ use Exception;
 use RuntimeException;
 
 /**
- * Class SocketServer
- * @package lx\socket
- *
  * @property-read ChannelRepository $channels
  * @property-read ConnectionRepository $connections
  * @property-read OriginValidator $originValidator

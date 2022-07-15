@@ -27,21 +27,13 @@ abstract class Channel implements ChannelInterface, ObjectInterface
     protected bool $isClosed = false;
     protected float $timerStart = 0;
 
-    public function __construct(iterable $config = [])
+    protected function init()
     {
-        $this->__objectConstruct($config);
-
         if ($this->eventListener) {
             $this->eventListener->setChannel($this);
         }
 
         $this->formerConnectionIds = new Vector();
-        $this->init();
-    }
-
-    public function init(): void
-    {
-        // pass
     }
 
     public static function getDependenciesConfig(): array
