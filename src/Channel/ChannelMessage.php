@@ -179,7 +179,7 @@ class ChannelMessage
 
     public function addData(array $data): ChannelMessage
     {
-        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true);
+        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true, true);
         return $this;
     }
 
