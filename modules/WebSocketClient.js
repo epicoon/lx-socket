@@ -176,10 +176,10 @@ class WebSocketClient {
 
     close() {
         if (this._reconnectionAllowed && this._channel) {
-            var map = lx.Storage.get('lxsocket') || {};
+            var map = lx.app.storage.get('lxsocket') || {};
             if (map.reconnect && (this._channel in map.reconnect) && map.reconnect[this._channel] == this._id) {
                 delete map.reconnect[this._channel];
-                lx.Storage.set('lxsocket', map);
+                lx.app.storage.set('lxsocket', map);
             }
         }
 
@@ -237,17 +237,17 @@ class WebSocketClient {
     }
 
     static dropReconnectionsData(list) {
-        var lxSocketData = lx.Storage.get('lxsocket') || {};
+        var lxSocketData = lx.app.storage.get('lxsocket') || {};
         for (let i in list) {
             let name = list[i];
             if (name in lxSocketData.reconnect)
                 delete lxSocketData.reconnect[name];
         }
-        lx.Storage.set('lxsocket', lxSocketData);
+        lx.app.storage.set('lxsocket', lxSocketData);
     }
 
     static filterReconnectionsData(list) {
-        var lxSocketData = lx.Storage.get('lxsocket') || {},
+        var lxSocketData = lx.app.storage.get('lxsocket') || {},
             newReconnect = {};
         for (let i in list) {
             let name = list[i];
@@ -255,7 +255,7 @@ class WebSocketClient {
                 newReconnect[name] = lxSocketData.reconnect[name];
         }
         lxSocketData.reconnect = newReconnect;
-        lx.Storage.set('lxsocket', lxSocketData);
+        lx.app.storage.set('lxsocket', lxSocketData);
     }
 }
 
@@ -299,11 +299,11 @@ function __setSocketHandlerOnMessage(self) {
                 self._reconnectionNextStep = 1;
 
                 var channelKey = self._channel,
-                    lxSocketData = lx.Storage.get('lxsocket') || {};
+                    lxSocketData = lx.app.storage.get('lxsocket') || {};
                 if (!lxSocketData.reconnect) lxSocketData.reconnect = {};
                 var oldConnectionId = lxSocketData.reconnect[channelKey] || null;
                 lxSocketData.reconnect[channelKey] = self._id;
-                lx.Storage.set('lxsocket', lxSocketData);
+                lx.app.storage.set('lxsocket', lxSocketData);
 
                 if (oldConnectionId) {
                     __sendReconnectionData(self, oldConnectionId);
@@ -375,7 +375,7 @@ function __setSocketHandlerOnMessage(self) {
         }
 
         if (msg.__dump__) {
-            lx.Alert(msg.__dump__)
+            lx.alert(msg.__dump__)
             return;
         }
 
@@ -404,7 +404,7 @@ function __setSocketHandlerOnError(self) {
     if (self._socket === null) return;
     self._socket.onError =(e)=>{
 
-        //TODO - если канала нет, надо ключ канала убрать отсюда lx.Storage.get('lxsocket')
+        //TODO - если канала нет, надо ключ канала убрать отсюда lx.app.storage.get('lxsocket')
 
         self._errors.push(e);
         if (self._onError) self._onError(e);
