@@ -114,20 +114,6 @@ class SocketServer extends ProcessApplication
 
     final protected function process(): void
     {
-        try {
-            $this->iteration();
-        } catch (Exception $e) {
-            $this->log($e->getMessage(), 'error');
-        }
-    }
-
-
-    /*******************************************************************************************************************
-     * PRIVATE
-     ******************************************************************************************************************/
-
-    private function iteration(): void
-    {
         $changedSocketResources = $this->allSocketResources;
         @stream_select(
             $changedSocketResources,
@@ -155,6 +141,11 @@ class SocketServer extends ProcessApplication
             $channel->onIteration();
         }
     }
+
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * PRIVATE
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
     /**
      * @throws RuntimeException
