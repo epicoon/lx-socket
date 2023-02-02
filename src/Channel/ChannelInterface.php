@@ -16,6 +16,7 @@ interface ChannelInterface
     
     public function onConnect(Connection $connection): void;
     public function onReconnect(Connection $connection): void;
+    public function onAddConnectionOpenData(Connection $connection, array $keys) : void;
     public function onDisconnect(Connection $connection): void;
     public function onLeave(Connection $connection): void;
 

@@ -26,8 +26,7 @@ class Connection
     private SocketKeeper $socket;
     private ?ChannelInterface $channel = null;
     private string $ip;
-    /** @var array|bool */
-    private $channelOpenData;
+    private ?array $channelOpenData = null;
     private int $port;
     private string $id = '';
     private ?string $oldId = null;
@@ -41,8 +40,6 @@ class Connection
         $this->server = $server;
         $this->socket = $socket;
 
-        $this->channelOpenData = false;
-
         // set some client-information:
         $socketName = $socket->getName();
         $tmp = explode(':', $socketName);
@@ -55,7 +52,7 @@ class Connection
 
     public function getChannelOpenData(): array
     {
-        $result = (is_bool($this->channelOpenData)) ? [] : $this->channelOpenData;
+        $result = $this->channelOpenData ?? [];
         $result['id'] = $this->getId();
         return $result;
     }
@@ -108,6 +105,7 @@ class Connection
             $encodedData = $this->hybi10Encode($payload, $type, $masked);
             $this->socket->writeBuffer($encodedData);
         } catch (RuntimeException $e) {
+            $this->log('Error: ' . $e->getMessage());
             $this->channelOnDisconnect();
             $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return false;
@@ -172,6 +170,7 @@ class Connection
         try {
             $data = $this->socket->readBuffer();
         } catch (RuntimeException $e) {
+            $this->log('Error: ' . $e->getMessage());
             $this->channelOnDisconnect();
             $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
             return;
@@ -224,9 +223,9 @@ class Connection
     }
 
 
-    /*******************************************************************************************************************
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * PRIVATE
-     ******************************************************************************************************************/
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
     private function checkOnConnect(array $authData): bool
     {
@@ -234,11 +233,7 @@ class Connection
             return false;
         }
 
-        $this->channelOpenData = $authData['channelOpenData'] ?? true;
-        if (!$this->channelOpenData) {
-            $this->channelOpenData = true;
-        }
-
+        $this->channelOpenData = $authData['channelOpenData'] ?? [];
         return true;
     }
     
@@ -250,7 +245,7 @@ class Connection
         if ($action) {
             switch ($action) {
                 case 'connect':
-                    if ($this->channelOpenData === false) {
+                    if ($this->channelOpenData === null) {
                         if (!$this->checkOnConnect($message)) {
                             $this->log('Connection validation failed');
                             $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
@@ -276,6 +271,14 @@ class Connection
                     $this->channel->onReconnect($this);
                     break;
 
+                case 'addOpenData':
+                    $data = $message['data'];
+                    foreach ($data as $key => $value) {
+                        $this->channelOpenData[$key] = $value;
+                    }
+                    $this->channel->onAddConnectionOpenData($this, array_keys($data));
+                    break;
+                    
                 case 'close':
                     $this->isReadyForClose = true;
                     $this->send(['__lxws_event__' => 'close']);

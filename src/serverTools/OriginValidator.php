@@ -50,6 +50,7 @@ class OriginValidator
         $domain = (strpos($domain, '/') !== false)
             ? substr($domain, 0, strpos($domain, '/'))
             : $domain;
+        $domain = preg_replace('/:[\d]+$/', '', $domain);
 
         return $domain;
     }

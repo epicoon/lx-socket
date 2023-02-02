@@ -3,7 +3,8 @@
 #lx:require ChannelMate;
 #lx:require Message;
 #lx:require EventListener;
-#lx:require Event;
+#lx:require ConnectionEvent;
+#lx:require ChannelEvent;
 
 
 class RequestHandler {
@@ -47,41 +48,34 @@ class WebSocketClient {
         this._reconnectionAllowed = false;
         this._channelMates = {};
         this._channelData = {};
-        this._beforeSend = null;
-        this._onConnected = null;
-        this._onClientJoin = null;
-        this._onClientDisconnected = null;
-        this._onClientReconnected = null;
-        this._onClientLeave = null;
-        this._onEvent = null;
-        this._onopen = null;
-        this._onmessage = null;
-        this._onclose = null;
-        this._onError = null;
         this._errors = [];
+
+        this._onBeforeSend = [];
+        this._onConnected = [];
+        this._onClientJoin = [];
+        this._onAddOpenData = [];
+        this._onClientDisconnected = [];
+        this._onClientReconnected = [];
+        this._onClientLeave = [];
+        this._onEvent = [];
+        this._onopen = [];
+        this._onmessage = [];
+        this._onclose = [];
+        this._onError = [];
 
         this.__qCounter = 0;
         this.__qBuffer = {};
 
         if (config.handlers) {
-            var handlers = config.handlers;
-            if (handlers.beforeSend) this._beforeSend = handlers.beforeSend;
-            if (handlers.onConnected) this._onConnected = handlers.onConnected;
-            if (handlers.onClientJoin) this._onClientJoin = handlers.onClientJoin;
-            if (handlers.onClientDisconnected) this._onClientDisconnected = handlers.onClientDisconnected;
-            if (handlers.onClientReconnected) this._onClientReconnected = handlers.onClientReconnected;
-            if (handlers.onClientLeave) this._onClientLeave = handlers.onClientLeave;
-            if (handlers.onChannelEvent) {
-                this._onEvent = handlers.onChannelEvent;
-                if (this._onEvent instanceof lx.socket.EventListener) this._onEvent.setSocket(this);
+            let handlers = config.handlers,
+                methods = ['onBeforeSend', 'onConnected', 'onClientJoin', 'onAddOpenData',
+                    'onClientDisconnected', 'onClientReconnected', 'onClientLeave',
+                    'onChannelEvent', 'onOpen', 'onMessage', 'onClose', 'onError'
+                ];
+            for (let handlerName in handlers) {
+                if (!methods.includes(handlerName)) continue;
+                this[handlerName](handlers[handlerName]);
             }
-
-            if (handlers.onOpen) this._onopen = handlers.onOpen;
-            if (handlers.onMessage) this._onmessage = handlers.onMessage;
-            if (handlers.onClose) this._onclose = handlers.onClose;
-            if (handlers.onError) this._onError = handlers.onError;
-
-            __setSocketHandlers(this);
         }
     }
 
@@ -174,9 +168,13 @@ class WebSocketClient {
         this.connect(this._channelOpenData, this._channelAuthData);
     }
 
+    addOpenData(data) {
+        __sendData(this, {__lxws_action__:'addOpenData', data});
+    }
+    
     close() {
         if (this._reconnectionAllowed && this._channel) {
-            var map = lx.app.storage.get('lxsocket') || {};
+            let map = lx.app.storage.get('lxsocket') || {};
             if (map.reconnect && (this._channel in map.reconnect) && map.reconnect[this._channel] == this._id) {
                 delete map.reconnect[this._channel];
                 lx.app.storage.set('lxsocket', map);
@@ -193,51 +191,85 @@ class WebSocketClient {
     }
 
     send(data, receivers = null, privateMode = false) {
-        var msg = __prepareMessageForSend(data, receivers, privateMode);
+        let msg = __prepareMessageForSend(data, receivers, privateMode);
         __sendData(this, msg);
     }
 
     trigger(eventName, data = {}, receivers = null, privateMode = false) {
-        var msg = __prepareMessageForSend(data, receivers, privateMode);
+        let msg = __prepareMessageForSend(data, receivers, privateMode);
         msg.__metaData__.__event__ = eventName;
         __sendData(this, msg);
     }
 
     request(route, data) {
-        var msg = __prepareMessageForSend(data, [this._id], true);
-        var key = __getRequestKey(this);
+        let msg = __prepareMessageForSend(data, [this._id], true),
+            key = __getRequestKey(this);
         msg.__metaData__.__request__ = {route, key};
-        var handler = new RequestHandler(this, key);
+        let handler = new RequestHandler(this, key);
         __sendData(this, msg);
         return handler;
     }
 
-    beforeSend(func) {
-        this._beforeSend = func;
+    onPromisedConnection(callback) {
+        if (this.isConnected()) {
+            callback();
+            return;
+        }
+        this.onConnected(callback);
     }
 
-    onOpen(func) {
-        this._onopen = func;
-        __setSocketHandlerOnOpen(this);
+    onBeforeSend(callback) {
+        this._onBeforeSend.push(callback);
     }
 
-    onMessage(func) {
-        this._onmessage = func;
-        __setSocketHandlerOnMessage(this);
+    onConnected(callback) {
+        this._onConnected.push(callback);
     }
 
-    onClose(func) {
-        this._onclose = func;
-        __setSocketHandlerOnClose(this);
+    onClientJoin(callback) {
+        this._onClientJoin.push(callback);
     }
 
-    onError(func) {
-        this._onError = func;
-        __setSocketHandlerOnError(this);
+    onAddOpenData(callback) {
+        this._onAddOpenData.push(callback);
+    }
+
+    onClientDisconnected(callback) {
+        this._onClientDisconnected.push(callback);
+    }
+
+    onClientReconnected(callback) {
+        this._onClientReconnected.push(callback);
+    }
+
+    onClientLeave(callback) {
+        this._onClientLeave.push(callback);
+    }
+
+    onChannelEvent(callback) {
+        if (callback instanceof lx.socket.EventListener)
+            callback.setSocket(this);
+        this._onEvent.push(callback);
+    }
+
+    onOpen(callback) {
+        this._onopen.push(callback);
+    }
+
+    onMessage(callback) {
+        this._onmessage.push(callback);
+    }
+
+    onClose(callback) {
+        this._onclose.push(callback);
+    }
+
+    onError(callback) {
+        this._onError.push(callback);
     }
 
     static dropReconnectionsData(list) {
-        var lxSocketData = lx.app.storage.get('lxsocket') || {};
+        let lxSocketData = lx.app.storage.get('lxsocket') || {};
         for (let i in list) {
             let name = list[i];
             if (name in lxSocketData.reconnect)
@@ -247,7 +279,7 @@ class WebSocketClient {
     }
 
     static filterReconnectionsData(list) {
-        var lxSocketData = lx.app.storage.get('lxsocket') || {},
+        let lxSocketData = lx.app.storage.get('lxsocket') || {},
             newReconnect = {};
         for (let i in list) {
             let name = list[i];
@@ -260,9 +292,9 @@ class WebSocketClient {
 }
 
 
-/***********************************************************************************************************************
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * PRIVATE
- **********************************************************************************************************************/
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 function __setSocketHandlers(self) {
     __setSocketHandlerOnOpen(self);
@@ -275,7 +307,7 @@ function __setSocketHandlerOnOpen(self) {
     if (self._socket === null) return;
     self._socket.onopen = function() {
         self._status = lx.socket.WebSocketClient.STATUS_CONNECTED;
-        if (self._onopen) self._onopen();
+        __runHandlers(self, 'open', self._onopen);
     }
 }
 
@@ -285,64 +317,54 @@ function __setSocketHandlerOnMessage(self) {
         let msg = JSON.parse(e.data);
 
         if (self._id === null) {
-            self._id = msg.id;
-            self._channelOpenData.id = self._id;
-            self._channelMates = {};
-            for (var mateId in msg.connections) {
-                self._channelMates[mateId] = new lx.socket.ChannelMate(self, mateId, msg.connections[mateId]);
-            }
-            self._channelData = lx.isArray(msg.channelData) ? {} : msg.channelData;
-
-            if (msg.reconnectionAllowed) {
-                self._reconnectionAllowed = true;
-                self._reconnectionStep = 0;
-                self._reconnectionNextStep = 1;
-
-                var channelKey = self._channel,
-                    lxSocketData = lx.app.storage.get('lxsocket') || {};
-                if (!lxSocketData.reconnect) lxSocketData.reconnect = {};
-                var oldConnectionId = lxSocketData.reconnect[channelKey] || null;
-                lxSocketData.reconnect[channelKey] = self._id;
-                lx.app.storage.set('lxsocket', lxSocketData);
-
-                if (oldConnectionId) {
-                    __sendReconnectionData(self, oldConnectionId);
-                    return;
-                }
-            }
-
-            __sendConnectionData(self);
+            __onHandshake(self, msg);
             return;
         }
 
         if (msg.__lxws_event__) {
+            let mate;
             switch (msg.__lxws_event__) {
                 case 'oldConnectionIdNotFound':
                     __sendConnectionData(self);
                     break;
                 case 'clientJoin':
-                    var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
+                    mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
-                    if (mate.isLocal()) {
-                        if (self._onConnected) self._onConnected();
-                    } else {
-                        if (self._onClientJoin) self._onClientJoin(mate);
-                    }
+                    if (mate.isLocal())
+                        __runHandlers(self, 'connected', self._onConnected);
+                    else
+                        __runHandlers(self, 'clientJoin', self._onClientJoin, {mate});
                     break;
                 case 'clientReconnected':
-                    var mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
+                    mate = new lx.socket.ChannelMate(self, msg.client.id, msg.client);
                     self._channelMates[msg.client.id] = mate;
-                    if (self._onClientReconnected) self._onClientReconnected(mate, msg.oldConnectionId);
+                    __runHandlers(self, 'clientReconnected', self._onClientReconnected, {
+                        mate,
+                        oldConnectionId: msg.oldConnectionId
+                    });
                     break;
                 case 'clientDisconnected':
-                    var mate = self._channelMates[msg.client.id];
+                    mate = self._channelMates[msg.client.id];
                     delete self._channelMates[msg.client.id];
-                    if (self._onClientDisconnected) self._onClientDisconnected(mate);
+                    __runHandlers(self, 'clientDisconnected', self._onClientDisconnected, {mate});
+                    break;
+                case 'clientAddOpenData':
+                    mate = self.getChannelMate(msg.connectionId);
+                    let oldData = {};
+                    for (let key in msg.data) {
+                        oldData[key] = mate[key];
+                        mate.addParam(key, msg.data[key]);
+                    }
+                    __runHandlers(self, 'addOpenData', self._onAddOpenData, {
+                        mate,
+                        oldData,
+                        newData: msg.data
+                    });
                     break;
                 case 'clientLeave':
-                    var mate = self._channelMates[msg.client.id];
+                    mate = self._channelMates[msg.client.id];
                     delete self._channelMates[msg.client.id];
-                    if (self._onClientLeave) self._onClientLeave(mate);
+                    __runHandlers(self, 'clientLeave', self._onClientLeave, {mate});
                     break;
                 case 'close':
                     self._isReadyForClose = true;
@@ -355,12 +377,12 @@ function __setSocketHandlerOnMessage(self) {
             return;
         }
 
-        if (msg.__event__ && self._onEvent) {
+        if (msg.__event__ && self._onEvent.len) {
             __processEvent(self, msg);
             return;
         }
 
-        if (msg.__multipleEvents__ && self._onEvent) {
+        if (msg.__multipleEvents__ && self._onEvent.len) {
             msg.__multipleEvents__.forEach(e=>__processEvent(self, e));
             return;
         }
@@ -379,14 +401,57 @@ function __setSocketHandlerOnMessage(self) {
             return;
         }
 
-        if (self._onmessage) self._onmessage(new lx.socket.Message(self, msg));
+        __runHandlers(self, new lx.socket.Message(self, msg), self._onmessage);
     };
+}
+
+function __onHandshake(self, msg) {
+    self._id = msg.id;
+    if (self._channelOpenData === null)
+        self._channelOpenData = {};
+    self._channelOpenData.id = self._id;
+    self._channelMates = {};
+    for (let mateId in msg.connections) {
+        self._channelMates[mateId] = new lx.socket.ChannelMate(self, mateId, msg.connections[mateId]);
+    }
+    self._channelData = lx.isArray(msg.channelData) ? {} : msg.channelData;
+
+    if (msg.reconnectionAllowed) {
+        self._reconnectionAllowed = true;
+        self._reconnectionStep = 0;
+        self._reconnectionNextStep = 1;
+
+        let channelKey = self._channel,
+            lxSocketData = lx.app.storage.get('lxsocket') || {};
+        if (!lxSocketData.reconnect) lxSocketData.reconnect = {};
+        let oldConnectionId = lxSocketData.reconnect[channelKey] || null;
+        lxSocketData.reconnect[channelKey] = self._id;
+        lx.app.storage.set('lxsocket', lxSocketData);
+
+        if (oldConnectionId) {
+            __sendReconnectionData(self, oldConnectionId);
+            return;
+        }
+    }
+
+    __sendConnectionData(self);
+}
+
+function __runHandlers(self, eventName, handlers, payload = {}) {
+    if (!handlers.len) return;
+    for (let i in handlers) {
+        let handler = handlers[i],
+            event = lx.isString(eventName)
+                ? new lx.socket.ConnectionEvent(eventName, self, payload)
+                : eventName;
+        handler(event);
+    }
 }
 
 function __setSocketHandlerOnClose(self) {
     if (self._socket === null) return;
     self._socket.onclose =(e)=>{
-        if (self._onclose) self._onclose(e);
+        __runHandlers(self, e, self._onclose);
         self._socket = null;
         self._id = null;
 
@@ -407,7 +472,7 @@ function __setSocketHandlerOnError(self) {
         //TODO - если канала нет, надо ключ канала убрать отсюда lx.app.storage.get('lxsocket')
 
         self._errors.push(e);
-        if (self._onError) self._onError(e);
+        __runHandlers(self, e, self._onError);
         self._socket = null;
         self._id = null;
         self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
@@ -418,14 +483,14 @@ function __setSocketHandlerOnError(self) {
 function __afterDisconnect(self) {
     if (!self._reconnectionAllowed) return;
 
-    var duration = self._reconnectionStep,
+    let duration = self._reconnectionStep,
         next = self._reconnectionStep + self._reconnectionNextStep;
     self._reconnectionStep = self._reconnectionNextStep;
     self._reconnectionNextStep = next;
 
     if (duration) {
         self._status = lx.socket.WebSocketClient.STATUS_WAITING_FOR_RECONNECTING;
-        var timer = new lx.Timer(duration * 500);
+        let timer = new lx.Timer(duration * 500);
         timer.onCycleEnds(()=>{
             self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
             self.reconnect();
@@ -438,7 +503,7 @@ function __afterDisconnect(self) {
 }
 
 function __prepareMessageForSend(data, receivers, privateMode) {
-    var result = {__data__:data, __metaData__:{}};
+    let result = {__data__:data, __metaData__:{}};
     if (receivers) result.__metaData__.receivers = receivers;
     result.__metaData__.private = (!result.__metaData__.receivers) ? false : privateMode;
     return result;
@@ -446,18 +511,20 @@ function __prepareMessageForSend(data, receivers, privateMode) {
 
 function __getRequestKey(self) {
     if (self.__qCounter == 999999) self.__qCounter = 0;
-    var result = self.__qCounter;
+    let result = self.__qCounter;
     self.__qCounter++;
     result += '_' + lx.Math.randomInteger(0, 999999) + '_' + Date.now() + '_' + (new Date).getMilliseconds();
     return self.__qCounter;
 }
 
 function __processEvent(self, msg) {
-    let event = new lx.socket.Event(msg.__event__, self, msg);
-    if (self._onEvent instanceof lx.socket.EventListener)
-        self._onEvent.processEvent(event);
-    else if (lx.isFunction(self._onEvent))
-        self._onEvent(event);
+    let event = new lx.socket.ChannelEvent(msg.__event__, self, msg);
+    self._onEvent.forEach(handler => {
+        if (handler instanceof lx.socket.EventListener)
+            handler.processEvent(event);
+        else if (lx.isFunction(handler))
+            handler(event);
+    });
 }
 
 function __sendConnectionData(self) {
@@ -481,6 +548,10 @@ function __sendReconnectionData(self, oldId) {
 
 function __sendData(self, data) {
     if (!self.isConnected()) return;
-    if (self._beforeSend && !self._beforeSend(data)) return;
+    for (let i in self._onBeforeSend) {
+        let handler = self._onBeforeSend[i],
+            event = new lx.socket.ConnectionEvent('beforeSend', this, data);
+        if (!handler(event)) return;
+    }
     self._socket.send(JSON.stringify(data));
 }

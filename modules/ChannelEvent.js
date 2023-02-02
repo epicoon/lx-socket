@@ -1,5 +1,5 @@
 #lx:namespace lx.socket;
-class Event extends lx.socket.Message
+class ChannelEvent extends lx.socket.Message
 {
     constructor(eventName, socket, params) {
         super(socket, params);
@@ -10,5 +10,4 @@ class Event extends lx.socket.Message
     getName() {
         return this._name;
     }
-    
 }

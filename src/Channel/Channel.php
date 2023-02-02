@@ -11,7 +11,7 @@ use lx\socket\Connection;
 use RuntimeException;
 use lx\Vector;
 
-abstract class Channel implements ChannelInterface, ObjectInterface
+class Channel implements ChannelInterface, ObjectInterface
 {
     use ObjectTrait;
 
@@ -234,6 +234,22 @@ abstract class Channel implements ChannelInterface, ObjectInterface
                 '__lxws_event__' => 'clientReconnected',
                 'client' => $clientData,
                 'oldConnectionId' => $connection->getOldId(),
+            ]);
+        }
+    }
+
+    public function onAddConnectionOpenData(Connection $connection, array $keys) : void
+    {
+        $allData = $connection->getChannelOpenData();
+        $data = [];
+        foreach ($keys as $key) {
+            $data[$key] = $allData[$key];
+        }
+        foreach ($this->connections as $otherConnection) {
+            $otherConnection->send([
+                '__lxws_event__' => 'clientAddOpenData',
+                'connectionId' => $connection->getId(),
+                'data' => $data,
             ]);
         }
     }

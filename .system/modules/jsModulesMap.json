@@ -2,5 +2,12 @@
     "lx.socket.WebSocketClient": {
         "name": "lx.socket.WebSocketClient",
         "path": "modules\/WebSocketClient.js"
+    },
+    "lx.socket.ChatBox": {
+        "name": "lx.socket.ChatBox",
+        "path": "modules\/widgets\/ChatBox.js",
+        "data": {
+            "i18n": "ChatBoxI18n.yaml"
+        }
     }
 }
