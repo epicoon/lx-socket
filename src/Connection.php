@@ -237,10 +237,22 @@ class Connection
         return true;
     }
     
-    private function processMessage(string $message)
+    private function processMessage(string $message): void
     {
         $message = json_decode($message, true);
+        $multi = $message['__multi__'] ?? false;
+        if ($multi) {
+            $messages = $message['__list__'] ?? [];
+            foreach ($messages as $iMessage) {
+                $this->processMessageArray($iMessage);
+            }
+        } else {
+            $this->processMessageArray($message);
+        }
+    }
 
+    private function processMessageArray(array $message): void
+    {
         $action = $message['__lxws_action__'] ?? null;
         if ($action) {
             switch ($action) {
@@ -278,7 +290,7 @@ class Connection
                     }
                     $this->channel->onAddConnectionOpenData($this, array_keys($data));
                     break;
-                    
+
                 case 'close':
                     $this->isReadyForClose = true;
                     $this->send(['__lxws_event__' => 'close']);

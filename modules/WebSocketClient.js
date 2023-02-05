@@ -49,6 +49,9 @@ class WebSocketClient {
         this._channelMates = {};
         this._channelData = {};
         this._errors = [];
+        this._buffer = null;
+        this._timer = null;
+        __defineBuffer(this, config);
 
         this._onBeforeSend = [];
         this._onConnected = [];
@@ -182,27 +185,27 @@ class WebSocketClient {
         }
 
         if (!this.isConnected()) return;
-        __sendData(this, {__lxws_action__:'close'});
+        __sendDataForce(this, {__lxws_action__:'close'});
     }
 
     break() {
         if (!this.isConnected()) return;
-        __sendData(this, {__lxws_action__:'break'});
+        __sendDataForce(this, {__lxws_action__:'break'});
     }
 
-    send(data, receivers = null, privateMode = false) {
-        let msg = __prepareMessageForSend(data, receivers, privateMode);
+    send(data, receivers = null, returnToSender = false, privateMode = false) {
+        let msg = __prepareMessageForSend(data, receivers, returnToSender, privateMode);
         __sendData(this, msg);
     }
 
-    trigger(eventName, data = {}, receivers = null, privateMode = false) {
-        let msg = __prepareMessageForSend(data, receivers, privateMode);
+    trigger(eventName, data = {}, receivers = null, returnToSender = true, privateMode = false) {
+        let msg = __prepareMessageForSend(data, receivers, returnToSender, privateMode);
         msg.__metaData__.__event__ = eventName;
         __sendData(this, msg);
     }
 
     request(route, data) {
-        let msg = __prepareMessageForSend(data, [this._id], true),
+        let msg = __prepareMessageForSend(data, [this._id], true, true),
             key = __getRequestKey(this);
         msg.__metaData__.__request__ = {route, key};
         let handler = new RequestHandler(this, key);
@@ -296,6 +299,32 @@ class WebSocketClient {
  * PRIVATE
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+function __defineBuffer(self, config) {
+    if (!config.buffer) return;
+    if (config.buffer === true)
+        config.buffer = 200;
+    self._buffer = [];
+    self._timer = new lx.Timer({
+        period: config.buffer,
+        countPeriods: false
+    });
+    self._timer._socket = self;
+    self._timer.onCycleEnds(function() {
+        if (!this._socket._buffer.len) return;
+
+        let buffer = this._socket._buffer;
+        this._socket._buffer = [];
+
+        if (buffer.len == 1)
+            this._socket._socket.send(JSON.stringify(buffer[0]));
+        else
+            this._socket._socket.send(JSON.stringify({
+                __multi__: true,
+                __list__: buffer
+            }));
+    });
+}
+
 function __setSocketHandlers(self) {
     __setSocketHandlerOnOpen(self);
     __setSocketHandlerOnMessage(self);
@@ -307,6 +336,10 @@ function __setSocketHandlerOnOpen(self) {
     if (self._socket === null) return;
     self._socket.onopen = function() {
         self._status = lx.socket.WebSocketClient.STATUS_CONNECTED;
+        if (self._timer) {
+            self._buffer = [];
+            self._timer.start();
+        }
         __runHandlers(self, 'open', self._onopen);
     }
 }
@@ -451,6 +484,11 @@ function __runHandlers(self, eventName, handlers, payload = {}) {
 function __setSocketHandlerOnClose(self) {
     if (self._socket === null) return;
     self._socket.onclose =(e)=>{
+        if (self._timer) {
+            self._timer.stop();
+            self._buffer = [];
+        }
+
         __runHandlers(self, e, self._onclose);
         self._socket = null;
         self._id = null;
@@ -468,6 +506,10 @@ function __setSocketHandlerOnClose(self) {
 function __setSocketHandlerOnError(self) {
     if (self._socket === null) return;
     self._socket.onError =(e)=>{
+        if (self._timer) {
+            self._timer.stop();
+            self._buffer = [];
+        }
 
         //TODO - если канала нет, надо ключ канала убрать отсюда lx.app.storage.get('lxsocket')
 
@@ -502,9 +544,10 @@ function __afterDisconnect(self) {
     } else self.reconnect();
 }
 
-function __prepareMessageForSend(data, receivers, privateMode) {
+function __prepareMessageForSend(data, receivers, returnToSender, privateMode) {
     let result = {__data__:data, __metaData__:{}};
     if (receivers) result.__metaData__.receivers = receivers;
+    result.__metaData__.returnToSender = returnToSender;
     result.__metaData__.private = (!result.__metaData__.receivers) ? false : privateMode;
     return result;
 }
@@ -533,7 +576,7 @@ function __sendConnectionData(self) {
         channelOpenData: self._channelOpenData || true
     };
     if (self._channelAuthData) data.auth = self._channelAuthData;
-    __sendData(self, data);
+    __sendDataForce(self, data);
 }
 
 function __sendReconnectionData(self, oldId) {
@@ -543,15 +586,30 @@ function __sendReconnectionData(self, oldId) {
         oldConnectionId: oldId
     };
     if (self._channelAuthData) data.auth = self._channelAuthData;
-    __sendData(self, data);
+    __sendDataForce(self, data);
 }
 
 function __sendData(self, data) {
     if (!self.isConnected()) return;
+
     for (let i in self._onBeforeSend) {
         let handler = self._onBeforeSend[i],
             event = new lx.socket.ConnectionEvent('beforeSend', this, data);
         if (!handler(event)) return;
     }
+
+    if (self._timer) self._buffer.push(data);
+    else self._socket.send(JSON.stringify(data));
+}
+
+function __sendDataForce(self, data) {
+    if (!self.isConnected()) return;
+
+    for (let i in self._onBeforeSend) {
+        let handler = self._onBeforeSend[i],
+            event = new lx.socket.ConnectionEvent('beforeSend', this, data);
+        if (!handler(event)) return;
+    }
+
     self._socket.send(JSON.stringify(data));
 }

@@ -27,6 +27,9 @@ class ChatBox extends lx.Box {
             indicator: 'lxSocket-ChatBox-indicator',
             indicatorOff: 'lxSocket-ChatBox-indicator-off',
             indicatorOn: 'lxSocket-ChatBox-indicator-on',
+            messageMarker: 'lxSocket-ChatBox-msg-marker',
+            messageReceived: 'lxSocket-ChatBox-msg-received',
+            messageRead: 'lxSocket-ChatBox-msg-read',
         };
     }
 
@@ -70,6 +73,18 @@ class ChatBox extends lx.Box {
             color: css.preset.hotLightColor
         });
         css.addClass('lxSocket-ChatBox-indicator-on', {
+            color: css.preset.checkedLightColor
+        });
+
+        css.addClass('lxSocket-ChatBox-msg-marker', {
+            height: '100%',
+            paddingRight: '5px'
+        });
+        css.addClass('lxSocket-ChatBox-msg-received', {
+            '@icon': ['\\2713', {fontSize:12}],
+        });
+        css.addClass('lxSocket-ChatBox-msg-read', {
+            '@icon': ['\\2713', {fontSize:12}],
             color: css.preset.checkedLightColor
         });
     }
@@ -121,6 +136,8 @@ class ChatBox extends lx.Box {
         });
         header.add(lx.Box, {key: 'indicator', css: this.basicCss.indicator});
         header->indicator.align(lx.CENTER, lx.MIDDLE);
+
+        //TODO emojes
 
         footer.gridProportional({indent: '10px', paddingTop: 0, minHeight: '20px'});
         footer.add(lx.Textarea, {
@@ -178,8 +195,12 @@ class ChatBox extends lx.Box {
             this.socket.onPromisedConnection(()=>__initConnection(this));
         }
 
-        receiveMessage(message, senderId, isPrivate) {
-            this.chatList.addMessage(message, senderId, isPrivate);
+        receiveMessage(message, messageId, senderId, isPrivate) {
+            let messageObj = this.chatList.addMessage(message, messageId, senderId, isPrivate);
+            if (messageObj.isVisible())
+                __sendMessageRead(this, messageObj);
+            else
+                __sendMessageReceived(this, messageObj);
         }
 
         sendMessage() {
@@ -191,15 +212,16 @@ class ChatBox extends lx.Box {
             const messageBox = this->>message;
             let message = messageBox.value();
             messageBox.value('');
-            this.chatList.addMessage(message);
+            let messageObj = this.chatList.addMessage(message);
 
             let isPrivate = !this.chatList.isCommonActive(),
                 receivers = isPrivate ? [this.chatList.active] : null;
             this.socket.send({
                 lxChatBox: this.chatId,
-                from: this.socket.getLocalMate().getId(),
+                type: 'message',
                 isPrivate,
-                message
+                message,
+                messageId: messageObj.id
             }, receivers);
         }
     }
@@ -235,8 +257,20 @@ function __initSheet(self, sheet) {
             text: message
         });
         text.align(lx.LEFT, lx.MIDDLE);
-        chatBox.scrollTo({yShift: 1});
-        //TODO - scrolling is not sharp
+        text.style('float', 'left');
+
+        let marker = msgWrapper.add(lx.Box, {
+            css: self.basicCss.messageMarker
+        });
+        marker.style('float', 'right');
+        marker.add(lx.Box, {
+            key: 'marker',
+            size: ['auto', 'auto']
+        });
+        marker.align(lx.CENTER, lx.BOTTOM);
+
+        if (chatBox.isDisplay()) chatBox.scrollTo({yShift: 1});
+        return msgRow;
     }
 
     function __initConnection(self) {
@@ -248,11 +282,19 @@ function __initSheet(self, sheet) {
         socket.onMessage((message)=>{
             const data = message.getData();
             if (!data.lxChatBox || data.lxChatBox != self.chatId) return;
-            if (message.getAuthor().isLocal()) {
-                //TODO - send confirm
-                return;
+            const sender = message.getAuthor();
+            if (sender.isLocal()) return;
+            switch (data.type) {
+                case 'message':
+                    self.receiveMessage(data.message, data.messageId, sender.getId(), data.isPrivate);
+                    break;
+                case 'received':
+                    self.chatList.onMessageReceived(data.messageId);
+                    break;
+                case 'read':
+                    self.chatList.onMessageRead(data.messageId);
+                    break;
             }
-            self.receiveMessage(data.message, data.from, data.isPrivate);
         });
         socket.onAddOpenData((e)=>{
             if (!(self.mateNameField in e.payload.newData) || e.payload.mate.isLocal()) return;
@@ -424,12 +466,28 @@ function __initSheet(self, sheet) {
         ];
     }
 
+    function __sendMessageReceived(self, message) {
+        self.socket.send({
+            lxChatBox: self.chatId,
+            type: 'received',
+            messageId: message.id
+        }, [message.authorId]);
+    }
+
+    function __sendMessageRead(self, message) {
+        self.socket.send({
+            lxChatBox: self.chatId,
+            type: 'read',
+            messageId: message.id
+        }, [message.authorId]);
+    }
+
     class lxChatList {
         constructor(widget) {
             this.widget = widget;
             this.active = '_';
             this.boxes = {
-                '_' : new lxChatBox(widget, widget->>chat.mark(0), '_')
+                '_' : new lxChatBox(widget, widget->>chat.mark(0), 'All', '_')
             };
         }
 
@@ -449,7 +507,7 @@ function __initSheet(self, sheet) {
             if (!mate) return;
             let name = mate[this.widget.mateNameField];
             const mark = this.widget->>chat.appendMark(name);
-            this.boxes[mateId] = new lxChatBox(this.widget, mark, mateId);
+            this.boxes[mateId] = new lxChatBox(this.widget, mark, name, mateId);
             __initSheet(this.widget, this.getMateChatBox(mateId).getSheet());
         }
 
@@ -476,7 +534,7 @@ function __initSheet(self, sheet) {
             return this.boxes['_'];
         }
 
-        addMessage(message, senderId, isPrivate) {
+        addMessage(message, messageId, senderId, isPrivate) {
             const socket = this.widget.socket;
             let chatBox, mate;
             if (senderId) {
@@ -490,16 +548,46 @@ function __initSheet(self, sheet) {
                 mate = socket.getLocalMate()
             }
 
-            chatBox.addMessage(message, mate);
+            return chatBox.addMessage(message, mate, messageId);
+        }
+
+        onMessageReceived(messageId) {
+            for (let i in this.boxes) {
+                let chatBox = this.boxes[i];
+                if (chatBox.hasMessage(messageId)) {
+                    chatBox.onMessageReceived(messageId);
+                    break;
+                }
+            }
+        }
+
+        onMessageRead(messageId) {
+            for (let i in this.boxes) {
+                let chatBox = this.boxes[i];
+                if (chatBox.hasMessage(messageId)) {
+                    chatBox.onMessageRead(messageId);
+                    break;
+                }
+            }
         }
     }
 
     class lxChatBox {
-        constructor(widget, mark, mateId) {
+        //TODO - buffering of messages
+
+        constructor(widget, mark, markLabel, mateId) {
             this.widget = widget;
             this.mark = mark;
+            this.label = markLabel;
             this.mark.__mateId = mateId;
             this.lastAuthor = null;
+            this.messages = {};
+            this.messagesCount = 0;
+            this.unread = 0;
+        }
+
+        getId() {
+            return this.mark.__mateId;
         }
 
         focus() {
@@ -510,16 +598,78 @@ function __initSheet(self, sheet) {
             return this.widget->>chat.sheet(this.mark.index);
         }
 
-        addMessage(message, mate) {
-            //TODO unread msg counter on marks
-
+        addMessage(message, mate, messageId = null) {
             let senderName = (this.lastAuthor === mate.getId())
                 ? null
                 : (mate.isLocal() ? 'You' : mate[this.widget.mateNameField]);
             this.lastAuthor = mate.getId();
 
+            messageId = messageId || this.getId() + '-' + mate.getId() + '-' + Date.now();
             let processedMessage = __prepareMessage(this.widget, message, senderName);
-            __addMessage(this.widget, this.getSheet(), processedMessage, mate.isLocal());
+            const messageBox = __addMessage(this.widget, this.getSheet(), processedMessage, mate.isLocal());
+            const messageObj = new lxChatMessage(messageId, this, messageBox, mate);
+            this.messages[messageId] = messageObj;
+            this.messagesCount++;
+
+            if (!messageBox.isDisplay()) {
+                this.unread++;
+                this.mark.setLabel( this.label + ' (' + this.unread + ')' );
+                messageBox.displayOnce(()=>{
+                    this.unread--;
+                    this.unread
+                        ? this.mark.setLabel( this.label + ' (' + this.unread + ')' )
+                        : this.mark.setLabel( this.label );
+                    __sendMessageRead(this.widget, messageObj);
+                });
+            }
+
+            return messageObj;
+        }
+
+        hasMessage(messageId) {
+            return messageId in this.messages;
+        }
+
+        onMessageReceived(messageId) {
+            this.messages[messageId].setReceived();
+        }
+
+        onMessageRead(messageId) {
+            this.messages[messageId].setRead();
+        }
+    }
+
+    class lxChatMessage {
+        constructor(id, chatBox, messageBox, author) {
+            this.id = id;
+            this.chatBox = chatBox;
+            this.messageBox = messageBox;
+            this.authorId = author.getId();
+            this.received = false;
+            this.read = false;
+        }
+
+        isVisible() {
+            if (!this.messageBox) return false;
+            return this.messageBox.isDisplay();
+        }
+
+        setReceived() {
+            if (this.received || this.read) return;
+            if (this.messageBox)
+                this.messageBox->>marker.addClass(this.chatBox.widget.basicCss.messageReceived);
+            this.received = true;
+        }
+
+        setRead() {
+            if (this.read) return;
+            if (this.messageBox) {
+                if (this.received)
+                    this.messageBox->>marker.removeClass(this.chatBox.widget.basicCss.messageReceived);
+                this.messageBox->>marker.addClass(this.chatBox.widget.basicCss.messageRead);
+            }
+            this.received = true;
+            this.read = true;
         }
     }
 }

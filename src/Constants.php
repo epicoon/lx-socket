@@ -10,5 +10,5 @@ class Constants
 
     const MAX_CONNECTION_PER_IP = 5;
 
-    const MAX_REQUESTS_PER_MINUTE = 50;
+    const MAX_REQUESTS_PER_MINUTE = 600;
 }

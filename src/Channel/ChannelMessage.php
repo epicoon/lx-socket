@@ -31,15 +31,15 @@ class ChannelMessage
             $this->data = $data['__data__'];
             $this->receivers = $data['__metaData__']['receivers'] ?? [];
             $this->private = $data['__metaData__']['private'] ?? false;
+            $this->returnToSender = $data['__metaData__']['returnToSender'] ?? true;
         } else {
             $this->data = $data;
             $this->receivers = [];
             $this->private = false;
+            $this->returnToSender = true;
         }
 
         $this->dataForConnections = [];
-        $this->returnToSender = true;
-
         $this->channel = $channel;
         $this->initiator = $initiator;
     }
