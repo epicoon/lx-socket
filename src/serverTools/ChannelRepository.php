@@ -47,13 +47,13 @@ class ChannelRepository
         return array_key_exists($key, $this->channels);
     }
 
-    public function get(string $key): ChannelInterface
+    public function get(string $channelName): ChannelInterface
     {
-        if ($this->has($key) === false) {
+        if ($this->has($channelName) === false) {
             throw new RuntimeException('Unknown channel requested.');
         }
 
-        return $this->channels[$key];
+        return $this->channels[$channelName];
     }
 
     public function create(string $channelName, string $channelClassName, array $config = []) : ?ChannelInterface

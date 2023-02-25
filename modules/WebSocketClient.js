@@ -30,7 +30,28 @@ class WebSocketClient {
         STATUS_WAITING_FOR_RECONNECTING = 6;
 
     /**
-     * @param {Object} config [[protocol, port, url, channel, handlers]]
+     * @param config {Object: {
+     *     port {Number},
+     *     url {String},
+     *     channel {String},
+     *     [protocol = 'ws'] {String},
+     *     [reconnect = true] {Boolean},
+     *     [buffer = true] {Boolean|Number} (: If Number - buffer life in milliseconds :),
+     *     handlers {Object: {
+     *         [onOpen] {Function|Tuple:[Object, Function]},
+     *         [onConnected] {Function|Tuple:[Object, Function]},
+     *         [onClientJoin] {Function|Tuple:[Object, Function]},
+     *         [onAddOpenData] {Function|Tuple:[Object, Function]},
+     *         [onBeforeSend] {Function|Tuple:[Object, Function]},
+     *         [onMessage] {Function|Tuple:[Object, Function]},
+     *         [onClientLeave] {Function|Tuple:[Object, Function]},
+     *         [onClientDisconnected] {Function|Tuple:[Object, Function]},
+     *         [onClientReconnected] {Function|Tuple:[Object, Function]},
+     *         [onClose] {Function|Tuple:[Object, Function]},
+     *         [onError] {Function|Tuple:[Object, Function]},
+     *         [onChannelEvent] {lx.socket.EventListener|Function|Tuple:[Object, Function]}
+     *     }}
+     * }}
      */
     constructor(config) {
         this._port = config.port || null;
@@ -45,6 +66,7 @@ class WebSocketClient {
         this._status = self::STATUS_NEW;
         this._isReadyForClose = false;
         this._id = null;
+        this._reconnect = lx.getFirstDefined(config.reconnect, true);
         this._reconnectionAllowed = false;
         this._channelMates = {};
         this._channelData = {};
@@ -176,7 +198,7 @@ class WebSocketClient {
     }
     
     close() {
-        if (this._reconnectionAllowed && this._channel) {
+        if (this._reconnectionAllowed && this._reconnect && this._channel) {
             let map = lx.app.storage.get('lxsocket') || {};
             if (map.reconnect && (this._channel in map.reconnect) && map.reconnect[this._channel] == this._id) {
                 delete map.reconnect[this._channel];
@@ -204,7 +226,7 @@ class WebSocketClient {
         __sendData(this, msg);
     }
 
-    request(route, data) {
+    request(route, data = {}) {
         let msg = __prepareMessageForSend(data, [this._id], true, true),
             key = __getRequestKey(this);
         msg.__metaData__.__request__ = {route, key};
@@ -300,12 +322,13 @@ class WebSocketClient {
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 function __defineBuffer(self, config) {
-    if (!config.buffer) return;
-    if (config.buffer === true)
-        config.buffer = 200;
+    let buffer = lx.getFirstDefined(config.buffer, true);
+    if (buffer === false) return;
+
+    if (buffer === true) buffer = 200;
     self._buffer = [];
     self._timer = new lx.Timer({
-        period: config.buffer,
+        period: buffer,
         countPeriods: false
     });
     self._timer._socket = self;
@@ -477,7 +500,9 @@ function __runHandlers(self, eventName, handlers, payload = {}) {
             event = lx.isString(eventName)
                 ? new lx.socket.ConnectionEvent(eventName, self, payload)
                 : eventName;
-        handler(event);
+        if (lx.isArray(handler))
+            header[1].call(header[0], event);
+        else handler.call(self, event);
     }
 }
 
@@ -492,6 +517,8 @@ function __setSocketHandlerOnClose(self) {
         __runHandlers(self, e, self._onclose);
         self._socket = null;
         self._id = null;
+        self._channelMates = {};
+        self._channelData = {};
 
         if (self._isReadyForClose) {
             self._status = lx.socket.WebSocketClient.STATUS_CLOSED;
@@ -517,13 +544,15 @@ function __setSocketHandlerOnError(self) {
         __runHandlers(self, e, self._onError);
         self._socket = null;
         self._id = null;
+        self._channelMates = {};
+        self._channelData = {};
         self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
         __afterDisconnect(self);
     };
 }
 
 function __afterDisconnect(self) {
-    if (!self._reconnectionAllowed) return;
+    if (!self._reconnectionAllowed || !self._reconnect) return;
 
     let duration = self._reconnectionStep,
         next = self._reconnectionStep + self._reconnectionNextStep;

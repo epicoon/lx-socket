@@ -259,15 +259,18 @@ function __initSheet(self, sheet) {
         text.align(lx.LEFT, lx.MIDDLE);
         text.style('float', 'left');
 
-        let marker = msgWrapper.add(lx.Box, {
-            css: self.basicCss.messageMarker
-        });
-        marker.style('float', 'right');
-        marker.add(lx.Box, {
-            key: 'marker',
-            size: ['auto', 'auto']
-        });
-        marker.align(lx.CENTER, lx.BOTTOM);
+        if (local) {
+            text.style('max-width', '90%');
+            let marker = msgWrapper.add(lx.Box, {
+                css: self.basicCss.messageMarker
+            });
+            marker.style('float', 'right');
+            marker.add(lx.Box, {
+                key: 'marker',
+                size: ['auto', 'auto']
+            });
+            marker.align(lx.CENTER, lx.BOTTOM);
+        }
 
         if (chatBox.isDisplay()) chatBox.scrollTo({yShift: 1});
         return msgRow;
@@ -296,11 +299,17 @@ function __initSheet(self, sheet) {
                     break;
             }
         });
+
         socket.onAddOpenData((e)=>{
             if (!(self.mateNameField in e.payload.newData) || e.payload.mate.isLocal()) return;
             //TODO update marks on change mate name
             __updateMateChoice(self);
         });
+        socket.onClientJoin((e)=>__updateMateChoice(self));
+        socket.onClientLeave((e)=>__updateMateChoice(self));
+        socket.onClientDisconnected((e)=>__updateMateChoice(self));
+        socket.onClientReconnected((e)=>__updateMateChoice(self));
+
         socket.onClose((e)=>{ self.indicator.status = 'disconnected'; });
         socket.onError((e)=>{ self.indicator.status = 'disconnected'; });
 

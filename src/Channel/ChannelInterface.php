@@ -3,22 +3,26 @@
 namespace lx\socket\Channel;
 
 use lx\socket\Connection;
+use DateTime;
 
 interface ChannelInterface
 {
     public function getName(): string;
+    public function createdAt(): DateTime;
     public function isReconnectionAllowed(): bool;
     public function getEventListener(): ?ChannelEventListenerInterface;
 
     public function timerOn(): void;
     public function timerOff(): void;
     public function getTimer(): float;
-    
+
     public function onConnect(Connection $connection): void;
     public function onReconnect(Connection $connection): void;
+    public function afterConnect(Connection $connection): void;
     public function onAddConnectionOpenData(Connection $connection, array $keys) : void;
     public function onDisconnect(Connection $connection): void;
     public function onLeave(Connection $connection): void;
+    public function afterDisconnect(Connection $connection): void;
 
     public function onIteration(): void;
 
@@ -29,7 +33,7 @@ interface ChannelInterface
     public function createEvent(string $eventName, array $eventData = []): ChannelEvent;
     public function trigger(string $eventName, array $eventData = []): void;
     public function onRequest(ChannelRequest $request): void;
-    public function handleRequest(ChannelRequest $request): ChannelResponse;
+    public function handleRequest(ChannelRequest $request): ?ChannelResponse;
     /**
      * @param mixed $data
      */

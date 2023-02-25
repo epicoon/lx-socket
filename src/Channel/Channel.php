@@ -10,8 +10,9 @@ use lx\ObjectTrait;
 use lx\socket\Connection;
 use RuntimeException;
 use lx\Vector;
+use DateTime;
 
-class Channel implements ChannelInterface, ObjectInterface
+class Channel implements ObjectInterface, ChannelInterface
 {
     use ObjectTrait;
 
@@ -26,6 +27,7 @@ class Channel implements ChannelInterface, ObjectInterface
     protected ?string $password = null;
     protected bool $isClosed = false;
     protected float $timerStart = 0;
+    protected ?DateTime $createdAt = null;
 
     protected function init()
     {
@@ -34,6 +36,7 @@ class Channel implements ChannelInterface, ObjectInterface
         }
 
         $this->formerConnectionIds = new Vector();
+        $this->createdAt = new DateTime();
     }
 
     public static function getDependenciesConfig(): array
@@ -74,6 +77,11 @@ class Channel implements ChannelInterface, ObjectInterface
         return $this->name;
     }
 
+    public function createdAt(): DateTime
+    {
+        return $this->createdAt;
+    }
+
     public function isReconnectionAllowed(): bool
     {
         return $this->reconnectionPeriod != 0;
@@ -102,7 +110,7 @@ class Channel implements ChannelInterface, ObjectInterface
     {
         return $this->isClosed;
     }
-    
+
     public function beforeClose(): void
     {
         // pass
@@ -113,7 +121,7 @@ class Channel implements ChannelInterface, ObjectInterface
         if ($this->isClosed) {
             return;
         }
-        
+
         $this->beforeClose();
 
         foreach ($this->connections as $connection) {
@@ -238,6 +246,11 @@ class Channel implements ChannelInterface, ObjectInterface
         }
     }
 
+    public function afterConnect(Connection $connection): void
+    {
+        // pass
+    }
+
     public function onAddConnectionOpenData(Connection $connection, array $keys) : void
     {
         $allData = $connection->getChannelOpenData();
@@ -260,7 +273,7 @@ class Channel implements ChannelInterface, ObjectInterface
         if (!array_key_exists($id, $this->connections)) {
             return;
         }
-        
+
         unset($this->connections[$id]);
         if ($this->isReconnectionAllowed() && !$this->formerConnectionIds->contains($id)) {
             $this->formerConnectionIds->push($id);
@@ -287,6 +300,11 @@ class Channel implements ChannelInterface, ObjectInterface
                 'client' => $clientData,
             ]);
         }
+    }
+
+    public function afterDisconnect(Connection $connection): void
+    {
+        // pass
     }
 
     public function onIteration(): void
@@ -351,11 +369,15 @@ class Channel implements ChannelInterface, ObjectInterface
     public function onRequest(ChannelRequest $request): void
     {
         $response = $this->handleRequest($request);
+        if (!$response) {
+            return;
+        }
+
         $response->initTransportData($request);
         $this->sendMessage($response);
     }
 
-    public function handleRequest(ChannelRequest $request): ChannelResponse
+    public function handleRequest(ChannelRequest $request): ?ChannelResponse
     {
         return $this->prepareResponse([]);
     }

@@ -2,6 +2,7 @@
 
 namespace lx\socket;
 
+use DateTime;
 use lx;
 use lx\socket\Channel\ChannelInterface;
 use lx\socket\Channel\ChannelMessage;
@@ -39,6 +40,7 @@ class Connection
     {
         $this->server = $server;
         $this->socket = $socket;
+        $this->_createdAt = new DateTime();
 
         // set some client-information:
         $socketName = $socket->getName();
@@ -75,6 +77,11 @@ class Connection
     public function getOldId(): ?string
     {
         return $this->oldId;
+    }
+
+    public function createdAt(): DateTime
+    {
+        return $this->_createdAt;
     }
 
     public function isReconnected(): bool
@@ -264,6 +271,7 @@ class Connection
                             return;
                         }
                         $this->channel->onConnect($this);
+                        $this->channel->afterConnect($this);
                     }
                     break;
 
@@ -281,6 +289,7 @@ class Connection
 
                     $this->oldId = $message['oldConnectionId'];
                     $this->channel->onReconnect($this);
+                    $this->channel->afterConnect($this);
                     break;
 
                 case 'addOpenData':
@@ -660,6 +669,7 @@ class Connection
     {
         if ($this->channel) {
             $this->channel->onDisconnect($this);
+            $this->channel->afterDisconnect($this);
         }
     }
 
@@ -667,6 +677,7 @@ class Connection
     {
         if ($this->channel) {
             $this->channel->onLeave($this);
+            $this->channel->afterDisconnect($this);
         }
     }
 }
