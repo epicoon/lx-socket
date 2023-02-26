@@ -1,8 +1,9 @@
 <?php
 
-namespace lx\socket\Channel;
+namespace lx\socket\channel\request;
 
 use lx\socket\Connection;
+use lx\socket\channel\ChannelMessage;
 
 class ChannelResponse extends ChannelMessage
 {

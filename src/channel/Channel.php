@@ -1,6 +1,6 @@
 <?php
 
-namespace lx\socket\Channel;
+namespace lx\socket\channel;
 
 use lx;
 use Exception;
@@ -11,6 +11,9 @@ use lx\socket\Connection;
 use RuntimeException;
 use lx\Vector;
 use DateTime;
+use lx\socket\channel\request\ChannelRequestHandlerInteface;
+use lx\socket\channel\request\ChannelRequest;
+use lx\socket\channel\request\ChannelResponse;
 
 class Channel implements ObjectInterface, ChannelInterface
 {
@@ -23,6 +26,7 @@ class Channel implements ObjectInterface, ChannelInterface
     /** @var Vector&iterable<string> */
     protected Vector $formerConnectionIds;
     protected ?ChannelEventListenerInterface $eventListener = null;
+    protected ?ChannelRequestHandlerInteface $requestHandler = null;
     protected array $parameters = [];
     protected ?string $password = null;
     protected bool $isClosed = false;
@@ -35,6 +39,10 @@ class Channel implements ObjectInterface, ChannelInterface
             $this->eventListener->setChannel($this);
         }
 
+        if ($this->requestHandler) {
+            $this->requestHandler->setChannel($this);
+        }
+
         $this->formerConnectionIds = new Vector();
         $this->createdAt = new DateTime();
     }
@@ -42,7 +50,15 @@ class Channel implements ObjectInterface, ChannelInterface
     public static function getDependenciesConfig(): array
     {
         return [
-            'eventListener' => ChannelEventListener::class,
+            'eventListener' => ChannelEventListenerInterface::class,
+            'requestHandler' => ChannelRequestHandlerInteface::class,
+        ];
+    }
+
+    public static function getDependenciesDefaultMap(): array
+    {
+        return [
+            ChannelEventListenerInterface::class => ChannelEventListener::class,
         ];
     }
 
@@ -379,6 +395,10 @@ class Channel implements ObjectInterface, ChannelInterface
 
     public function handleRequest(ChannelRequest $request): ?ChannelResponse
     {
+        if ($this->requestHandler) {
+            return $this->requestHandler->handleRequest($request);
+        }
+
         return $this->prepareResponse([]);
     }
 

@@ -1,8 +1,10 @@
 <?php
 
-namespace lx\socket\Channel;
+namespace lx\socket\channel;
 
 use lx\socket\Connection;
+use lx\socket\channel\request\ChannelRequest;
+use lx\socket\channel\request\ChannelResponse;
 use DateTime;
 
 interface ChannelInterface

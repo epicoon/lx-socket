@@ -2,7 +2,7 @@
 
 namespace lx\socket\serverTools;
 
-use lx\socket\Channel\ChannelInterface;
+use lx\socket\channel\ChannelInterface;
 use lx\StringHelper;
 use RuntimeException;
 

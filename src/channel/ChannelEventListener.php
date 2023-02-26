@@ -1,6 +1,6 @@
 <?php
 
-namespace lx\socket\Channel;
+namespace lx\socket\channel;
 
 use lx\StringHelper;
 

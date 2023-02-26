@@ -4,10 +4,10 @@ namespace lx\socket;
 
 use DateTime;
 use lx;
-use lx\socket\Channel\ChannelInterface;
-use lx\socket\Channel\ChannelMessage;
-use lx\socket\Channel\ChannelEvent;
-use lx\socket\Channel\ChannelRequest;
+use lx\socket\channel\ChannelInterface;
+use lx\socket\channel\ChannelMessage;
+use lx\socket\channel\ChannelEvent;
+use lx\socket\channel\request\ChannelRequest;
 use RuntimeException;
 
 class Connection
