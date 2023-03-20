@@ -8,7 +8,7 @@ class ChannelEventListener implements ChannelEventListenerInterface
 {
     private ChannelInterface $channel;
 
-    public function getAvailableEventNames(): array
+    protected function getTransitEventNames(): array
     {
         return [];
     }
@@ -25,10 +25,14 @@ class ChannelEventListener implements ChannelEventListenerInterface
 
     public function processAnyEvent(ChannelEvent $event): bool
     {
-        if (in_array($event->getName(), $this->getAvailableEventNames())) {
+        if (in_array($event->getName(), $this->getTransitEventNames())) {
             return true;
         }
-        
+
+        if (!$this->beforeProcessEvent($event)) {
+            return false;
+        }
+
         $eventName = StringHelper::snakeToCamel('on-' . $event->getName(), ['_', '-']);
         if (method_exists($this, $eventName)) {
             $result = $this->$eventName($event);
@@ -40,6 +44,11 @@ class ChannelEventListener implements ChannelEventListenerInterface
             $result = true;
         }
         return (bool)$result;
+    }
+
+    public function beforeProcessEvent(ChannelEvent $event): bool
+    {
+        return true;
     }
 
     public function processEvent(ChannelEvent $event): bool

@@ -29,7 +29,7 @@ class ChannelMessage
             && array_key_exists('__metaData__', $data)
         ) {
             $this->data = $data['__data__'];
-            $this->receivers = $data['__metaData__']['receivers'] ?? [];
+            $this->receivers = (array)($data['__metaData__']['receivers'] ?? []);
             $this->private = $data['__metaData__']['private'] ?? false;
             $this->returnToSender = $data['__metaData__']['returnToSender'] ?? true;
         } else {

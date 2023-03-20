@@ -95,7 +95,13 @@ class ChatBox extends lx.Box {
      * @param [config] {Object: {
      *     #merge(lx.Rect::constructor::config),
      *     [chatId = 1] {Number|String},
-     *     [mateNameField = 'name'] {String}
+     *     [mateNameField = 'name'] {String},
+     *     [matesPosition = lx.TOP] {Number&Enum(
+     *         lx.TOP,
+     *         lx.BOTTOM,
+     *         lx.LEFT,
+     *         lx.RIGHT
+     *     )},
      * }}
      */
     build(config) {
@@ -120,11 +126,12 @@ class ChatBox extends lx.Box {
             animation: true,
             joint: true,
             marksStyle: lx.MultiBox.STYLE_STREAM,
+            marksPosition: lx.getFirstDefined(config.matesPosition, lx.TOP),
             appendAllowed: true,
             dropAllowed: true
         });
         wrapper.add(lx.JointMover, { bottom: '50px' });
-        const footer = wrapper.add(lx.Box, { key: 'footer' });
+        const footer = wrapper.add(lx.Box, { key: 'footer', geom: true });
 
         header.gridProportional({indent: '10px', paddingBottom: 0});
         //TODO settings - change name, change marks location
@@ -150,8 +157,8 @@ class ChatBox extends lx.Box {
             width: 3
         });
 
-        body.mark(0).removeDelButton();
         __initSheet(this, this->>chat.sheet(0));
+        this->>chat.mark(0).removeDelButton();
     }
 
     #lx:client clientBuild(config) {
