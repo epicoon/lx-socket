@@ -332,7 +332,7 @@ function __defineBuffer(self, config) {
         countPeriods: false
     });
     self._timer._socket = self;
-    self._timer.onCycleEnds(function() {
+    self._timer.onCycleEnd(function() {
         if (!this._socket._buffer.len) return;
 
         let buffer = this._socket._buffer;
@@ -562,7 +562,7 @@ function __afterDisconnect(self) {
     if (duration) {
         self._status = lx.socket.WebSocketClient.STATUS_WAITING_FOR_RECONNECTING;
         let timer = new lx.Timer(duration * 500);
-        timer.onCycleEnds(()=>{
+        timer.onCycleEnd(()=>{
             self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;
             self.reconnect();
             timer.stop();
