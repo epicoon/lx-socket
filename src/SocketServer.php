@@ -106,7 +106,7 @@ class SocketServer extends ProcessApplication
 
     public function removeSocket(SocketKeeper $socket): void
     {
-        $index = array_search($socket->getResource(), $this->allSocketResources);
+        $index = array_search($socket->getResource(), $this->allSocketResources, true);
         if ($index !== false) {
             unset($this->allSocketResources[$index]);
         }
