@@ -192,6 +192,7 @@ class ChatBox extends lx.Box {
                 this.sendMessage();
             }
         });
+        this->>send.click(()=>this.sendMessage());
         this->>mateChoice.on('change', (e)=>__onChooseMate(self, e.newValue));
         this->>chat.on('selected', (e)=>this.chatList.setActive(e.mark));
     }
@@ -218,6 +219,8 @@ class ChatBox extends lx.Box {
             
             const messageBox = this->>message;
             let message = messageBox.value();
+            if (message == '') return;
+
             messageBox.value('');
             let messageObj = this.chatList.addMessage(message);
 
