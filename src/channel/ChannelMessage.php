@@ -179,6 +179,10 @@ class ChannelMessage
 
     public function addData(array $data): ChannelMessage
     {
+        if (empty($data)) {
+            return $this;
+        }
+
         $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true, true);
         return $this;
     }
@@ -197,6 +201,10 @@ class ChannelMessage
 
     public function addDataForConnection(Connection $connection, array $data, bool $rewrite = false): ChannelMessage
     {
+        if (empty($data)) {
+            return $this;
+        }
+
         if (!array_key_exists($connection->getId(), $this->dataForConnections)) {
             $this->dataForConnections[$connection->getId()] = [];
         }
