@@ -1,6 +1,7 @@
 en-EN:
   send: Send
   noConnection: The conenction is absent
+  allLabel: All
 
   newMate: New mate
   Dog: Dog
@@ -111,6 +112,7 @@ en-EN:
 ru-RU:
   send: Отправить
   noConnection: Соединение отсутствует
+  allLabel: Для всех
 
   newMate: Новый участник
   Dog: Собака

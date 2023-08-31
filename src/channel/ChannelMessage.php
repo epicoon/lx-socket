@@ -168,22 +168,24 @@ class ChannelMessage
         return $this;
     }
     
-    /**
-     * @param string|array $data
-     */
-    public function setData($data): ChannelMessage
+    public function setData(iterable $data): ChannelMessage
     {
-        $this->data = $data;
+        $this->data = ArrayHelper::iterableToArray($data);
         return $this;
     }
 
-    public function addData(array $data): ChannelMessage
+    public function addData(iterable $data): ChannelMessage
     {
-        if (empty($data)) {
+        if (ArrayHelper::isEmpty($data)) {
             return $this;
         }
 
-        $this->data = ArrayHelper::mergeRecursiveDistinct($this->data, $data, true, true);
+        $this->data = ArrayHelper::mergeRecursiveDistinct(
+            $this->data,
+            ArrayHelper::iterableToArray($data),
+            true,
+            true
+        );
         return $this;
     }
 
@@ -193,15 +195,15 @@ class ChannelMessage
         return $this;
     }
 
-    public function setDataForConnection(Connection $connection, array $data): ChannelMessage
+    public function setDataForConnection(Connection $connection, iterable $data): ChannelMessage
     {
-        $this->dataForConnections[$connection->getId()] = $data;
+        $this->dataForConnections[$connection->getId()] = ArrayHelper::iterableToArray($data);
         return $this;
     }
 
-    public function addDataForConnection(Connection $connection, array $data, bool $rewrite = false): ChannelMessage
+    public function addDataForConnection(Connection $connection, iterable $data, bool $rewrite = false): ChannelMessage
     {
-        if (empty($data)) {
+        if (ArrayHelper::isEmpty($data)) {
             return $this;
         }
 
@@ -211,7 +213,7 @@ class ChannelMessage
         
         $this->dataForConnections[$connection->getId()] = ArrayHelper::mergeRecursiveDistinct(
             $this->dataForConnections[$connection->getId()],
-            $data,
+            ArrayHelper::iterableToArray($data),
             $rewrite
         );
         return $this;

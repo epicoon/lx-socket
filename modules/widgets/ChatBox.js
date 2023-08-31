@@ -121,7 +121,7 @@ class ChatBox extends lx.Box {
         const body = wrapper.add(lx.MultiBox, {
             key: 'chat',
             geom: [0, 0, null, null, 0, '50px'],
-            marks: [ 'All' ],
+            marks: [ #lx:i18n(allLabel) ],
             basicCss: {main: null},
             animation: true,
             joint: true,
@@ -506,7 +506,7 @@ function __initSheet(self, sheet) {
             this.widget = widget;
             this.active = '_';
             this.boxes = {
-                '_' : new lxChatBox(widget, widget->>chat.mark(0), 'All', '_')
+                '_' : new lxChatBox(widget, widget->>chat.mark(0), #lx:i18n(allLabel), '_')
             };
         }
 
