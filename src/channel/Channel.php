@@ -106,7 +106,7 @@ class Channel implements ObjectInterface, ChannelInterface
     public function checkOnConnect(Connection $connection, array $authData): bool
     {
         if ($this->requirePassword()) {
-            return $this->checkPassword($authData['password'] ?? null);
+            return $this->checkPassword($authData['password'] ?? '');
         }
 
         return true;

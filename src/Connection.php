@@ -108,7 +108,9 @@ class Connection
     public function send($payload, string $type = 'text', bool $masked = false): bool
     {
         try {
-            $payload = json_encode($payload);
+            if (!is_string($payload)) {
+                $payload = json_encode($payload);
+            }
             $encodedData = $this->hybi10Encode($payload, $type, $masked);
             $this->socket->writeBuffer($encodedData);
         } catch (RuntimeException $e) {
@@ -135,6 +137,9 @@ class Connection
             case self::CLOSE_CODE_LEAVE:
                 $payload .= 'going away';
                 break;
+            case self::CLOSE_CODE_ACCESS_ERROR:
+                $payload .= 'access denied';
+                break;
             case self::CLOSE_CODE_PROTOCOL_ERROR:
                 $payload .= 'protocol error';
                 break;
@@ -143,6 +148,9 @@ class Connection
                 break;
             case self::CLOSE_CODE_LARGE_FRAME:
                 $payload .= 'frame too large';
+                break;
+            case self::CLOSE_CODE_SOCKET_ERROR:
+                $payload .= 'server error';
                 break;
             case self::CLOSE_CODE_WRONG_ENCODING:
                 $payload .= 'utf8 expected';
@@ -179,7 +187,7 @@ class Connection
         } catch (RuntimeException $e) {
             $this->log('Error: ' . $e->getMessage());
             $this->channelOnDisconnect();
-            $this->destruct(self::CLOSE_CODE_SOCKET_ERROR);
+            $this->close(self::CLOSE_CODE_SOCKET_ERROR);
             return;
         }
 
@@ -267,7 +275,7 @@ class Connection
                     if ($this->channelOpenData === null) {
                         if (!$this->checkOnConnect($message)) {
                             $this->log('Connection validation failed');
-                            $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
+                            $this->close(self::CLOSE_CODE_ACCESS_ERROR);
                             return;
                         }
                         $this->channel->onConnect($this);
@@ -283,7 +291,7 @@ class Connection
 
                     if (!$this->checkOnConnect($message)) {
                         $this->log('Reconnection validation failed');
-                        $this->destruct(self::CLOSE_CODE_ACCESS_ERROR);
+                        $this->close(self::CLOSE_CODE_ACCESS_ERROR);
                         return;
                     }
 

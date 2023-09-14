@@ -27,7 +27,8 @@ class WebSocketClient {
         STATUS_CONNECTED = 3,
         STATUS_CLOSED = 4,
         STATUS_DISCONNECTED = 5,
-        STATUS_WAITING_FOR_RECONNECTING = 6;
+        STATUS_ACCESS_DENIED = 6,
+        STATUS_WAITING_FOR_RECONNECTING = 7;
 
     /**
      * @param config {Object: {
@@ -86,6 +87,7 @@ class WebSocketClient {
         this._onopen = [];
         this._onmessage = [];
         this._onclose = [];
+        this._onAccessDenied = [];
         this._onError = [];
 
         this.__qCounter = 0;
@@ -95,7 +97,7 @@ class WebSocketClient {
             let handlers = config.handlers,
                 methods = ['onBeforeSend', 'onConnected', 'onClientJoin', 'onAddOpenData',
                     'onClientDisconnected', 'onClientReconnected', 'onClientLeave',
-                    'onChannelEvent', 'onOpen', 'onMessage', 'onClose', 'onError'
+                    'onChannelEvent', 'onOpen', 'onMessage', 'onClose', 'onAccessDenied', 'onError'
                 ];
             for (let handlerName in handlers) {
                 if (!methods.includes(handlerName)) continue;
@@ -110,6 +112,10 @@ class WebSocketClient {
 
     setChannel(channel) {
         this._channel = channel;
+    }
+
+    getChannel() {
+        return this._channel;
     }
 
     getUrl() {
@@ -287,6 +293,10 @@ class WebSocketClient {
 
     onClose(callback) {
         this._onclose.push(callback);
+    }
+
+    onAccessDenied(callback) {
+        this._onAccessDenied.push(callback);
     }
 
     onError(callback) {
@@ -514,14 +524,18 @@ function __setSocketHandlerOnClose(self) {
             self._buffer = [];
         }
 
-        __runHandlers(self, e, self._onclose);
+        if (e.code == 1002) __runHandlers(self, e, self._onAccessDenied);
+        else __runHandlers(self, e, self._onclose);
         self._socket = null;
         self._id = null;
         self._channelMates = {};
         self._channelData = {};
 
-        if (self._isReadyForClose) {
+        if (e.code == 1002) {
             self._status = lx.socket.WebSocketClient.STATUS_CLOSED;
+            self._isReadyForClose = false;
+        } else if (self._isReadyForClose) {
+            self._status = lx.socket.WebSocketClient.STATUS_ACCESS_DENIED;
             self._isReadyForClose = false;
         } else {
             self._status = lx.socket.WebSocketClient.STATUS_DISCONNECTED;

@@ -14,6 +14,11 @@
 /**
  * @widget lx.MultiBox
  * @content-disallowed
+ *
+ * @events [
+ *     newUnreadMessage,
+ *     messageRead
+ * ]
  */
 #lx:namespace lx.socket;
 class ChatBox extends lx.Box {
@@ -501,6 +506,24 @@ function __initSheet(self, sheet) {
         }, [message.authorId]);
     }
 
+    function __processUnread(self) {
+        let unread = 0;
+        for (let i in self.chatList.boxes)
+            unread += self.chatList.boxes[i].unread;
+        self.trigger('newUnreadMessage', self.newEvent({
+            totalUnread: unread
+        }));
+    }
+
+    function __processRead(self) {
+        let unread = 0;
+        for (let i in self.chatList.boxes)
+            unread += self.chatList.boxes[i].unread;
+        self.trigger('messageRead', self.newEvent({
+            totalUnread: unread
+        }));
+    }
+
     class lxChatList {
         constructor(widget) {
             this.widget = widget;
@@ -639,7 +662,9 @@ function __initSheet(self, sheet) {
                         ? this.mark.setLabel( this.label + ' (' + this.unread + ')' )
                         : this.mark.setLabel( this.label );
                     __sendMessageRead(this.widget, messageObj);
+                    __processRead(this.widget);
                 });
+                __processUnread(this.widget);
             }
 
             return messageObj;
