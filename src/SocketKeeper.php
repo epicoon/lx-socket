@@ -154,7 +154,6 @@ class SocketKeeper
             return false;
         }
 
-        stream_socket_sendto();
         $result = stream_socket_shutdown($this->resource, STREAM_SHUT_RDWR);
         if (!$result) {
             return false;
