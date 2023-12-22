@@ -351,12 +351,11 @@ function __initSheet(self, sheet) {
 
     function __onChooseMate(self, mateId) {
         self->>mateChoice.value(null);
-        if (self.chatList.has(mateId))
-            self.chatList.focus(mateId);
-        else {
+
+        if (!self.chatList.has(mateId))
             self.chatList.add(mateId);
-            self.chatList.focus(mateId);
-        }
+
+        self.chatList.focus(mateId);
     }
 
     function __getDefaultName(self) {
@@ -549,6 +548,9 @@ function __initSheet(self, sheet) {
             if (!mate) return;
             let name = mate[this.widget.mateNameField];
             const mark = this.widget->>chat.appendMark(name);
+            mark.on('beforeDropMark', e => {
+                delete this.boxes[e.mark.__mateId];
+            });
             this.boxes[mateId] = new lxChatBox(this.widget, mark, name, mateId);
             __initSheet(this.widget, this.getMateChatBox(mateId).getSheet());
         }
