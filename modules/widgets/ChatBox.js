@@ -109,8 +109,8 @@ class ChatBox extends lx.Box {
      *     )},
      * }}
      */
-    build(config) {
-        super.build(config);
+    render(config) {
+        super.render(config);
 
         this.chatId = config.chatId || 1;
         this.mateNameField = config.mateNameField || 'name';
@@ -166,8 +166,8 @@ class ChatBox extends lx.Box {
         this->>chat.mark(0).removeDelButton();
     }
 
-    #lx:client clientBuild(config) {
-        super.clientBuild(config);
+    #lx:client clientRender(config) {
+        super.clientRender(config);
 
         this.socket = null;
         this.chatList = new lxChatList(this);
